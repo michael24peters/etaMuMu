@@ -117,25 +117,6 @@ while evtnum < evtmax:
     etas = tes[etaSeq.outputLocation()]
     # Loop over the eta candidates
     for cand in etas: # Each cand is of type Particle (or DataObject)
-      # Get particle daughters
-      daughters = cand.daughtersVector()
-      # Get photons
-      # TODO: naming convention, i.e. what to call photons? this or relatives?
-      # photons = daughters['gamma'] # TODO
-      # Get muons
-      # muons = daughters['mu+','mu-'] # TODO
-      # Get related photons
-      relations = self.mctool.relatedMCPs(photons) # pi.dl[1].par == reconstructed (photon) - Particle class
-      w = 0 # Weight
-      mc_photon = None # Will be MCParticle class
-      # Find highest weight, i.e. closest relation between generated and reconstructed particle
-      for relation in relations:
-          if relation.weight() > w: w = relation.weight(); mc_photon = relation.to() # rel.to() == MCParticle
-      if mc_photon:
-      for 
-          # information about linked photon you want to store in ntuple
-      # REPEAT FOR MUONS
-      # TODO: do truth matching for each individual daughter, three for loops
       vrs = {}
       # Fill m
       vrs['m'] = cand.measuredMass()
