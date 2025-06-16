@@ -81,7 +81,6 @@ while evtnum < evtmax:
   ntuple.clear()
   fill = False
 
-  # 
   # mcpart.endVertices()[0].products() # vector of MCParticle daughters
 
   # Fill generated info
