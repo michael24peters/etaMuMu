@@ -1,17 +1,7 @@
 ###############################################################################
-# Ntuple class for eta -> mu+ mu- analysis                                    #
+# Ntuple class for eta -> mu+ mu- gamma analysis                              #
 # Author: Michael Peters                                                      #
 ###############################################################################
-
-"""
-Notes:
-- ISSUE: 50,232 entries, only 118 for photon (see prt_pid)
-- ISSUE: false ntuple filling for prt_pnn_pi, k, p, ghost, prt_prb_ghost
-- How to interpret prt_z0, z1?
-- ISSUE: prt_id1-3
-- TODO: investigate mcprt_pid
-
-"""
 
 from collections import OrderedDict
 import ROOT, array, GaudiPython

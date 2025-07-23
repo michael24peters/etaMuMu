@@ -25,7 +25,7 @@ DaVinci().DDDBtag = 'dddb-20210528-8'
 DaVinci().CondDBtag = 'sim-20201113-8-vc-md100-Sim10'
 
 # Output file.
-outfile = 'etaMuMuGamma_v3.root'
+outfile = 'etaMuMuGamma.root'
 
 ### ?? RELATED TO TURBO WHICH I DID NOT INCLUDE HERE ??
 ### ?? SHOULD I HAVE BOTH THE TRIGGER AND MC TYPES ??
@@ -69,9 +69,10 @@ comb = CombineParticles( # Combine daughters to reconstruct composite particle.
     # Muon thresholds P > 3-5 GeV, PT > 300-600 MeV
     ## TODO: Add TRGHOSTPROB < 0.4? Muon ghost probability, i.e. likely fake 
     ## tracks.
+    ## TODO: include acceptance range here for muons and photons
     ## !! Do I need ISMUON here? or is it redundant?
-    "mu+" : "(PT > 500*MeV) & (P > 10*GeV) & (ISMUON)", 
-    "mu-" : "(PT > 500*MeV) & (P > 10*GeV) & (ISMUON)", 
+    "mu+" : "(PT > 500*MeV) & (P > 10*GeV)",
+    "mu-" : "(PT > 500*MeV) & (P > 10*GeV)", 
     # Photon reconstruction (ECAL) thresholds P > 2-5 GeV, PT > 300-500 MeV
     ## TODO: Add CL > 0.2? ECAL photon confidence level
     "gamma" : "(PT > 650*MeV) & (P > 5*GeV)" 
@@ -93,30 +94,33 @@ seq = SelectionSequence('seqMuMuGamma', TopSelection = sel)
 # DaVinci algorithm sequence.
 DaVinci().appendToMainSequence([seq])
 
-# Create the jets.
 ### ?? DO I NEED TO DO THIS ??
 # Create the jets.
-from Configurables import HltParticleFlow, HltJetBuilder
-pf = HltParticleFlow('pf')
-pf.Inputs += [
-['ProtoParticle',  'best',  'Rec/ProtoP/Charged'],
-['ProtoParticle',  'gamma', 'Rec/ProtoP/Neutrals']]
-pf.Inputs += [['Particle', 'daughters', seq.outputLocation()]]
-pf.Output = 'Phys/PF/Particles'
-pf.ProBestNames = ['mu+']
-pf.ProBestKeys  = [701]
-pf.ProBestMins  = [0.5]
-pf.EcalBest = True
-pf.SprRecover = False
-pf.TrkLnErrMax = 10
-pf.TrkUpErrMax = 10
-pf.TrkDnErrMax = 10
-jb = HltJetBuilder('jb')
-jb.JetEcPath = ''
-jb.Inputs = [pf.Output]
-jb.Output = 'Phys/JB/Particles'
-jb.JetPtMin = 0
-DaVinci().appendToMainSequence([pf, jb])
+# from Configurables import HltParticleFlow
+# pf = HltParticleFlow('pf')
+# pf.Inputs += [
+# ['ProtoParticle',  'best',  'Rec/ProtoP/Charged'],
+# ['ProtoParticle',  'gamma', 'Rec/ProtoP/Neutrals']]
+# pf.Inputs += [['Particle', 'daughters', seq.outputLocation()]]
+# pf.Output = 'Phys/PF/Particles'
+# pf.ProBestNames = ['mu+']
+# pf.ProBestKeys  = [701]
+# pf.ProBestMins  = [0.5]
+# pf.EcalBest = True
+# pf.SprRecover = False
+# pf.TrkLnErrMax = 10
+# pf.TrkUpErrMax = 10
+# pf.TrkDnErrMax = 10
+# DaVinci().appendToMainSequence([pf])
+
+# Create the jets.
+# from Configurables import HltJetBuilder
+# jb = HltJetBuilder('jb')
+# jb.JetEcPath = ''
+# jb.Inputs = [pf.Output]
+# jb.Output = 'Phys/JB/Particles'
+# jb.JetPtMin = 0
+# DaVinci().appendToMainSequence([jb])
 
 # TisTos configuration.
 from Configurables import ToolSvc, TriggerTisTos
@@ -229,43 +233,43 @@ while evtnum < evtmax:
         sigs += [prt]; ntuple.fillPrt(prt, pvrs, trks); fill = True
   ### ?? WHAT IS THE PURPOSE OF THIS LINE ??
   # pf = Particle Flow
-  prts = tes[pf.Output]
-  try: len(prts); run = len(sigs) > 0 # Need at least one signal candidate.
-  except: run = False
-  if run:
-    for prt in prts:
-      ### ?? If this fails, what happens? How does continue work?
-      if abs(prt.charge()) != 1: continue # Filter out neutral particles
-      # Try to associate PF particle with PV
-      try: pvr = pvrTool.relatedPV(prt, 'Rec/Vertex/Primary')
-      except: pvr = None
-      if not pvr: continue
-      ### ?? WAS ROOT.Double(-1) ??
-      from ctypes import c_double
-      ip, ipChi2 = c_double(-1.0), c_double(-1.0)
-      dstTool.distance(prt, pvr, ip, ipChi2)
-      ### ?? CHECK MY UNDERSTANDING OF THIS SECTION ??
-      # Require large impact parameter: track of shortest distance between 
-      # particle's trajectory and PV. In this case this is the measure of how 
-      # inconsistent the track is with originating from the PV. If it comes
-      # from the PV, it shoul dhave a small IP and ipChi2; if from a SV 
-      # (decay), it should have a larger IP and ipChi2. ipChi2 = 9 is at 3
-      # sigma level.
-      # Pt() > 200 is a soft cut to exclude very low energy clutter.
-      # Need to convert c_double to python float via .value
-      if ipChi2.value > 9 and prt.momentum().Pt() > 200:
-        # Check if PF candidate is near a daughter of signal candidate
-        minDoca = 100 # Placeholder; 100mm is a very large value
-        # Loop through PF candidates
-        for sig in sigs:
-          # Loop through PF candidate daughters
-          for dtr in sig.daughters():
-            doca = docaTool.doca(prt, dtr)
-            if doca < minDoca: minDoca = doca
-          # If DOCA is small to daughter of known signal, muon might be near
-          # the decay and is thus worth filling. In other words, it's checking
-          # whether there are good quality, displaced muons near signal decay.
-          if minDoca < 0.2: ntuple.fillPrt(prt); fill = True
+  # prts = tes[pf.Output]
+  # try: len(prts); run = len(sigs) > 0 # Need at least one signal candidate.
+  # except: run = False
+  # if run:
+  #   for prt in prts:
+  #     ### ?? If this fails, what happens? How does continue work?
+  #     if abs(prt.charge()) != 1: continue # Filter out neutral particles
+  #     # Try to associate PF particle with PV
+  #     try: pvr = pvrTool.relatedPV(prt, 'Rec/Vertex/Primary')
+  #     except: pvr = None
+  #     if not pvr: continue
+  #     ### ?? WAS ROOT.Double(-1) ??
+  #     from ctypes import c_double
+  #     ip, ipChi2 = c_double(-1.0), c_double(-1.0)
+  #     dstTool.distance(prt, pvr, ip, ipChi2)
+  #     ### ?? CHECK MY UNDERSTANDING OF THIS SECTION ??
+  #     # Require large impact parameter: track of shortest distance between 
+  #     # particle's trajectory and PV. In this case this is the measure of how 
+  #     # inconsistent the track is with originating from the PV. If it comes
+  #     # from the PV, it shoul dhave a small IP and ipChi2; if from a SV 
+  #     # (decay), it should have a larger IP and ipChi2. ipChi2 = 9 is at 3
+  #     # sigma level.
+  #     # Pt() > 200 is a soft cut to exclude very low energy clutter.
+  #     # Need to convert c_double to python float via .value
+  #     if ipChi2.value > 9 and prt.momentum().Pt() > 200:
+  #       # Check if PF candidate is near a daughter of signal candidate
+  #       minDoca = 100 # Placeholder; 100mm is a very large value
+  #       # Loop through PF candidates
+  #       for sig in sigs:
+  #         # Loop through PF candidate daughters
+  #         for dtr in sig.daughters():
+  #           doca = docaTool.doca(prt, dtr)
+  #           if doca < minDoca: minDoca = doca
+  #         # If DOCA is small to daughter of known signal, muon might be near
+  #         # the decay and is thus worth filling. In other words, it's checking
+  #         # whether there are good quality, displaced muons near signal decay.
+  #         if minDoca < 0.2: ntuple.fillPrt(prt); fill = True
 
   # MC-only muons for truth matching.
   prts = tes['Phys/StdAllLooseMuons/Particles'] # Save all loose selected muons
