@@ -219,8 +219,6 @@ class Ntuple:
         if dtr.proto() and dtr.proto().track(): 
           trk, mu = dtr.proto().track(), None
           # Store each hit in each sub-detector in a dictionary
-          ### ?? ADDED SAFETY CHECK HERE, WAS GETTING NULL POINTER EXCEPTION ??
-          ### ?? IN LINE 332 ??
           if trk: hits = self.hits(trk)
         # 7 = calorimeter, so if the daughter has no hits in the calorimeter
         # but does have a muon PID, add the muon track. (Muons should skip the
@@ -485,7 +483,6 @@ class Ntuple:
     mom = prt.momentum()
     pos = None
     key = self.key(prt)
-    ### ?? originally [23, 32, 36]. WHY Z^0, Z', A^0/H^0_3? ??
     pre = 'mctag' if pid in [221] else 'mcprt'
     # Prevent filling same particle more than once.
     if key in self.saved: return (pre, self.saved[key])
@@ -497,9 +494,9 @@ class Ntuple:
       for vrt in prt.endVertices():
         # Loop over final products (daughters)
         for dtr in vrt.products():
-          # 13 == muon
-          ### ?? WHAT IS THE PURPOSE OF THIS LINE ??
-          if abs(dtr.particleID().pid()) != 13: continue
+          # 13 == muon, 22 = photon
+          # If daughters (of mc eta) are muon or photon, save particle 
+          if abs(dtr.particleID().pid()) not in [13, 22]: continue
           pos = vrt.position()
           (dtrPre,dtrIdx) = self.fillMcp(dtr) # Recursively loop thru daughters
           idxs += [dtrIdx]
