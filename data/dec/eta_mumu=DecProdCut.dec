@@ -1,0 +1,23 @@
+# EventType: 39112030
+#
+# Descriptor: eta -> mu+ mu-
+#
+# NickName: eta_mumu=DecProdCut
+#
+# Cuts: DaughtersInLHCb
+# Documentation:
+#    eta -> mu+ mu- via phase space
+# EndDocumentation
+#
+# PhysicsWG: RD
+# Tested: Yes
+# Responsible: Michael Peters
+# Email: peters.michael@cern.ch
+# Date: 20250821
+# CPUTime: <1 min
+#
+Decay etasig
+  1.00			mu+		mu-   PHSP;
+Enddecay
+#
+End

@@ -1,0 +1,42 @@
+# EventType: 39112230
+#
+# Descriptor: [eta -> mu+ mu- gamma]
+#
+# NickName: eta_mumugamma=TightCut
+#
+# Cuts: LoKi::GenCutTool/TightCut
+#
+# CPUTime: < 1 min
+#
+# InsertPythonCode:
+# #
+# from Configurables import LoKi__GenCutTool
+# gen = Generation(genAlgName)
+# gen.SignalPlain.addTool ( LoKi__GenCutTool , 'TightCut' )
+# tightCut = gen.SignalPlain.TightCut
+# tightCut.Decay     = '^[ eta -> ^mu+ ^mu- ^gamma]CC'
+# tightCut.Cuts      =    {
+#     '[mu+]cc' : ' goodMu ',
+#     'eta'   : ' goodEta ',
+#     'gamma' : 'goodGamma'}
+# tightCut.Preambulo += [
+#     'inAcc  = in_range ( 0.005, GTHETA, 0.400 ) ' , 
+#     'goodMu = (GPT > 500 * MeV) & inAcc',
+#     'goodEta  = (GPT > 1000 * MeV) & inAcc',
+#     'goodGamma = (GPT > 500 * MeV) & inAcc']
+# EndInsertPythonCode
+# Documentation:
+#    eta -> mu+ mu- gamma, tight cuts
+# EndDocumentation
+#
+# PhysicsWG: RD 
+# Tested: Yes
+# Responsible: Hongjie Mu 
+# Email: hongjie.mu@cern.ch
+# Date: 20190913
+#
+Decay etasig
+  1.00			mu+		mu-		gamma   PHSP;
+Enddecay
+#
+End
