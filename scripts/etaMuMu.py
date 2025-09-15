@@ -57,15 +57,6 @@ else:
 outfile = 'eta2MuMu' + ('Gamma' if IS_MUMUGAMMA else '') + ('_mc' if IS_MC else '_data') + '.root'
 print(f"outfile name: {outfile}")
 
-# Tag configuration.
-TrkCats = [('ve', 1), ('tt', 2), ('it', 3), ('ot', 4), ('mu', 7)]
-# TODO: !! check these with Phil
-# NOTE: Currently not in use
-# TrgLocs = ['Hlt2ExoticaPrmptDiMuonSSTurbo', 
-#            'Hlt2ExoticaPrmptDiMuonTurbo',
-#            'Hlt2ExoticaDiMuonNoIPTurbo',
-#            'Hlt2ExoticaDisplDiMuon'] # Sprucing lines for Run 2
-
 # Reconstruction.
 from Configurables import CombineParticles, FilterDesktop
 from StandardParticles import StdLooseMuons as muons
@@ -78,6 +69,19 @@ sel_dtrs = Selection(
   "SelDaughters",
   Algorithm = FilterDesktop('DaughterCuts', Code='ALL'),
   RequiredSelections=([muons, photons] if IS_MUMUGAMMA else [muons]))
+
+if IS_MUMUGAMMA == True:
+  decay_desriptor = "eta -> mu+ mu- gamma" 
+  daughter_cuts = {
+    "mu+" : "(PT > 500*MeV) & (P > 3*GeV)",
+    "mu-" : "(PT > 500*MeV) & (P > 3*GeV)", 
+    "gamma" : "(PT > 500*MeV) & (CL > 0.2)" # ?? PT > 300*MeV & P>1.5*GeV & PROBNNgamma > 0.2
+  }
+  combination_cuts = "this string"
+  required_selections = [muongs, photons]
+else:
+  same thing here
+
 
 # Apply combination cuts
 comb = CombineParticles(
@@ -186,7 +190,7 @@ while evtnum < evtmax:
   except: continue
   # Save number of primary vertices
   try: ntuple.ntuple['pvr_n'][0] = len(tes['Rec/Vertex/Primary'])
-  except: continue
+  except: pass
   try: ntuple.ntuple['evt_spd'][0] = GaudiPython.gbl.LoKi.L0.DataValue(
     'Spd(Mult)')(tes['Trig/L0/L0DUReport'])
   except: pass
@@ -205,25 +209,10 @@ while evtnum < evtmax:
   except: run = False
   if run:
     for prt in prts:
-      if (prt.measuredMass() < 1500 or rndTool.Rndm() < 0.1):
-        sigs += [prt]; ntuple.fillPrt(prt, pvrs, trks); fill = True
+      sigs += [prt]; ntuple.fillPrt(prt, pvrs, trks); fill = True
 
+  # Fill MC.
   if IS_MC:
-    # MC-only muons for truth matching.
-    prts = tes['Phys/StdAllLooseMuons/Particles'] # All loose selected muons
-    try: len(prts); run = True
-    except: run = False
-    if run:
-      for prt in prts: ntuple.fillPrt(prt); fill = True
-
-    # MC-only photons for truth matching
-    prts = tes['Phys/StdLoosePhotons/Particles'] # Loose selected photons
-    try: len(prts); run = True
-    except: run = False
-    if run:
-      for prt in prts: ntuple.fillPrt(prt); fill = True
-
-    # Fill MC.
     mcps = tes['MC/Particles']
     try: len(mcps); run = True
     except: run = False
@@ -231,8 +220,8 @@ while evtnum < evtmax:
       # Loop over MC truth particles
       for mcp in mcps:
         pid = mcp.particleID()
-        # Save only muons and etas
-        if abs(pid.pid()) in [13, 221]: # 13 = mu, 221 = eta
+        # Look at every eta
+        if abs(pid.pid()) in 221:
           ntuple.fillMcp(mcp)
           fill = True
 

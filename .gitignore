@@ -1,8 +1,5 @@
-# old/ directory
-old/*
-
-# ref/ directory
-ref/*
+# data/ directory
+data/*
 
 # test/ directory
 test/*

@@ -9,7 +9,9 @@ from GaudiPython.Bindings import gbl
 STD  = gbl.std
 LHCB = gbl.LHCb
 
+# Tag configuration.
 TrkCats = [('ve', 1), ('tt', 2), ('it', 3), ('ot', 4), ('mu', 7)]
+# Sprucing lines for Run 2.
 TrgLocs = ['Hlt2ExoticaPrmptDiMuonSSTurbo', 
            'Hlt2ExoticaPrmptDiMuonTurbo',
            'Hlt2ExoticaDiMuonNoIPTurbo',
@@ -493,23 +495,42 @@ class Ntuple:
 
     # Daughters.
     if pre == 'mctag':
-      idxs = []
-      # Loop over decay points (end vertices)
+      if prt.particleID().pid() == 221: continue
+      dtrs = []
+
+    # Loop over decay vertices
       for vrt in prt.endVertices():
-        # Loop over final products (daughters)
+        # Loop over products of vertices (daughters)
         for dtr in vrt.products():
-          # 13 == muon, 22 = photon
-          # If daughters (of mc eta) are muon or photon, save particle
-          if abs(dtr.particleID().pid()) not in [13, 22]: continue
-          pos = vrt.position()
-          (dtrPre,dtrIdx) = self.fillMcp(dtr) # Recursively loop thru daughters
-          idxs += [dtrIdx]
-      ## !! Index daughters by linking candiate to prtIdx-th daughter.
-      ## Example: 'tag_idx_prt0 = 42' means the first daughter of the candidate
-      ## is entry 42 in the tree. ??
-      # Build truth-level decay chain
-      for prtIdx, dtr in enumerate(idxs):
-        self.fill('%s_idx_prt%i' % (pre, prtIdx), dtr)
+          if abs(dtr.particleID().pid()) in [13, 22]: dtrs += {'pid': dtr.particleID().pid(), dtr}
+        # Sort daughters by PID, i.e. always in {-13, 13, 22} order.
+        dtrs = sorted(dtrs, key=lambda d: d['pid'])
+      
+      if dtrs['pid'] != [-13, 13, 22] or dtrs['pid'] != [-13, 13]: return
+
+      for idx, dtr in dtrs:
+        jdx = self.fillMcp(dtr)
+        self.fill(jdx, dtr)
+
+    # Daughters.
+    # if pre == 'mctag':
+    #   idxs = []
+    #   # Loop over decay points (end vertices)
+    #   for vrt in prt.endVertices():
+    #     # Loop over final products (daughters)
+    #     for dtr in vrt.products():
+    #       # 13 == muon, 22 = photon
+    #       # If daughters (of mc eta) are muon or photon, save particle
+    #       if abs(dtr.particleID().pid()) not in [13, 22]: continue
+    #       pos = vrt.position()
+    #       (dtrPre,dtrIdx) = self.fillMcp(dtr) # Recursively loop thru daughters
+    #       idxs += [dtrIdx]
+    #   ## !! Index daughters by linking candiate to prtIdx-th daughter.
+    #   ## Example: 'tag_idx_prt0 = 42' means the first daughter of the candidate
+    #   ## is entry 42 in the tree. ??
+    #   # Build truth-level decay chain
+    #   for prtIdx, dtr in enumerate(idxs):
+    #     self.fill('%s_idx_prt%i' % (pre, prtIdx), dtr)
 
     # Save current index of TTree array, get next row index of TTree.
     idx = self.ntuple['%s_px' % pre].size()
