@@ -351,8 +351,8 @@ class Ntuple:
           self.fill('%s_y%i'  % (pre, hit), -1)
           self.fill('%s_z%i'  % (pre, hit), -1)
           self.fill('%s_id%i' % (pre, hit), -1)
-          self.fill('%s_t%i'  % (pre, hit)  -1)
-          self.fill('%s_p%i'  % (pre, hit)  -1)
+          self.fill('%s_t%i'  % (pre, hit),  -1)
+          self.fill('%s_p%i'  % (pre, hit),  -1)
           continue
         ## ?? ADDITIONAL EXPLANATION NEEDED ??
         # Calculate track parameters based on z position
@@ -495,43 +495,25 @@ class Ntuple:
 
     # Daughters.
     if pre == 'mctag':
-      if prt.particleID().pid() == 221: continue
       dtrs = []
-
-    # Loop over decay vertices
+      
+      # Loop over decay vertices
       for vrt in prt.endVertices():
         # Loop over products of vertices (daughters)
         for dtr in vrt.products():
-          if abs(dtr.particleID().pid()) in [13, 22]: dtrs += {'pid': dtr.particleID().pid(), dtr}
+          if abs(dtr.particleID().pid()) in [13, 22]: 
+            dtrs.append({'pid': dtr.particleID().pid(), 'dtr' : dtr})
         # Sort daughters by PID, i.e. always in {-13, 13, 22} order.
         dtrs = sorted(dtrs, key=lambda d: d['pid'])
       
-      if dtrs['pid'] != [-13, 13, 22] or dtrs['pid'] != [-13, 13]: return
-
-      for idx, dtr in dtrs:
-        jdx = self.fillMcp(dtr)
-        self.fill(jdx, dtr)
-
-    # Daughters.
-    # if pre == 'mctag':
-    #   idxs = []
-    #   # Loop over decay points (end vertices)
-    #   for vrt in prt.endVertices():
-    #     # Loop over final products (daughters)
-    #     for dtr in vrt.products():
-    #       # 13 == muon, 22 = photon
-    #       # If daughters (of mc eta) are muon or photon, save particle
-    #       if abs(dtr.particleID().pid()) not in [13, 22]: continue
-    #       pos = vrt.position()
-    #       (dtrPre,dtrIdx) = self.fillMcp(dtr) # Recursively loop thru daughters
-    #       idxs += [dtrIdx]
-    #   ## !! Index daughters by linking candiate to prtIdx-th daughter.
-    #   ## Example: 'tag_idx_prt0 = 42' means the first daughter of the candidate
-    #   ## is entry 42 in the tree. ??
-    #   # Build truth-level decay chain
-    #   for prtIdx, dtr in enumerate(idxs):
-    #     self.fill('%s_idx_prt%i' % (pre, prtIdx), dtr)
-
+      # Skip all etas which do not decay to mu+ mu- (gamma)
+      pids = [d['pid'] for d in dtrs]
+      if pids not in ([-13, 13, 22], [-13, 13]): return
+      
+      for dtr in dtrs:
+        idx = self.fillMcp(dtr['dtr'])
+        self.fill(idx, dtr['dtr'])
+    
     # Save current index of TTree array, get next row index of TTree.
     idx = self.ntuple['%s_px' % pre].size()
     self.saved[key] = idx
@@ -540,7 +522,6 @@ class Ntuple:
     self.fillMom(pre, mom)
 
     # PID.
-    ### ?? WHAT IS THE PURPOSE OF THIS LINE ??
     self.fill('%s_q' % pre, float(prt.particleID().threeCharge()) / 3.0)
     self.fill('%s_pid' % pre, pid)
     # Fill PID of parent if possible

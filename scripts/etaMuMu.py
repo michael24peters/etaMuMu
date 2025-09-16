@@ -34,18 +34,12 @@ IS_MUMUGAMMA = args.mumugamma    # True = η→μμγ, False = η→μμ
 # MC or real data.
 if IS_MC:
   DaVinci().DataType = '2018'
-  # N = cross-section * luminosity
   DaVinci().Lumi = False # Processing of luminosity data.
   DaVinci().Simulation = True # MC simulation data.
-  # Found using lb-dirac dirac-bookkeeping-production-information 00169948.
+  # Found using "lb-dirac dirac-bookkeeping-production-information 00169948".
   DaVinci().DDDBtag = 'dddb-20210528-8'
   DaVinci().CondDBtag = 'sim-20201113-8-vc-md100-Sim10'
-  IOHelper('ROOT').inputFiles(['data/00169948_00000003_7.AllStreams.dst',
-                              # 'data/00169948_00000138_7.AllStreams.dst',
-                              # 'data/00169948_00000186_7.AllStreams.dst',
-                              # 'data/00169948_00000319_7.AllStreams.dst',
-                              # 'data/00169948_00000411_7.AllStreams.dst'
-                              ],
+  IOHelper('ROOT').inputFiles(['data/00169948_00000003_7.AllStreams.dst'],
                               clear = True)
 else:
   DaVinci().DataType = '2018' # !! TODO
@@ -53,68 +47,60 @@ else:
   DaVinci().Simulation = False
   # TODO: IOHelper input pointing to data DSTs from bookkeeping
 
-# Output file.
-outfile = 'eta2MuMu' + ('Gamma' if IS_MUMUGAMMA else '') + ('_mc' if IS_MC else '_data') + '.root'
-print(f"outfile name: {outfile}")
-
 # Reconstruction.
 from Configurables import CombineParticles, FilterDesktop
 from StandardParticles import StdLooseMuons as muons
-# TODO: only loose photon cut applied
 from StandardParticles import StdLooseAllPhotons as photons
 from PhysSelPython.Wrappers import Selection, SelectionSequence
 
-# Apply daughter cuts
-sel_dtrs = Selection(
-  "SelDaughters",
-  Algorithm = FilterDesktop('DaughterCuts', Code='ALL'),
-  RequiredSelections=([muons, photons] if IS_MUMUGAMMA else [muons]))
-
+# Decay mode config
 if IS_MUMUGAMMA == True:
-  decay_desriptor = "eta -> mu+ mu- gamma" 
+  # Output file
+  outfile = 'eta2MuMuGamma' + ('_mc' if IS_MC else '_data') + '.root'
+  # Decay descriptor
+  decay_descriptor = "eta -> mu+ mu- gamma"
+  # Daughter cuts
   daughter_cuts = {
     "mu+" : "(PT > 500*MeV) & (P > 3*GeV)",
-    "mu-" : "(PT > 500*MeV) & (P > 3*GeV)", 
-    "gamma" : "(PT > 500*MeV) & (CL > 0.2)" # ?? PT > 300*MeV & P>1.5*GeV & PROBNNgamma > 0.2
+    "mu-" : "(PT > 500*MeV) & (P > 3*GeV)",
+    "gamma" : "(PT > 500*MeV) & (CL > 0.2)" # ?? PT > 300*MeV & P>1.5*GeV & PROBNNgamma > 0>
   }
-  combination_cuts = "this string"
-  required_selections = [muongs, photons]
+  required_selections = [muons, photons]
+# Repeat for eta -> mu+ mu-
 else:
-  same thing here
+  outfile = 'eta2MuMu' + ('_mc' if IS_MC else '_data') + '.root'
+  decay_descriptor = "eta -> mu+ mu-"
+  daughter_cuts = {
+    "mu+" : "(PT > 500*MeV) & (P > 3*GeV)",
+    "mu-" : "(PT > 500*MeV) & (P > 3*GeV)",
+  }
+  required_selections = [muons]
 
+# Combination cuts
+combination_cuts = (
+  "(ADAMASS('eta') < 150*MeV) & "
+  "(AMAXDOCA('') < 0.4*mm) & "
+  "(AMAXCHILD('mu-' == ABSID, TRCHI2DOF) < 3) & "
+  "(AMINCHILD('mu-' == ABSID, PROBNNmu) > 0.4)"
+)
+print(f"outfile name: {outfile}")
 
-# Apply combination cuts
+# Apply cuts
 comb = CombineParticles(
   'combEtaMuMuGamma',
-  DecayDescriptor= "eta -> mu+ mu- gamma" if IS_MUMUGAMMA else "eta -> mu+ mu-",
-  DaughtersCuts = {
-    "mu+" : "(PT > 500*MeV) & (P > 3*GeV)",
-    "mu-" : "(PT > 500*MeV) & (P > 3*GeV)", 
-    "gamma" : "(PT > 500*MeV) & (CL > 0.2)" # ?? PT > 300*MeV & P>1.5*GeV & PROBNNgamma > 0.2
-  },
-  CombinationCut = (
-    "(ADAMASS('eta') < 150*MeV) & "
-    "(AMAXDOCA('') < 0.4*mm) & "
-    "(AMAXCHILD('mu-' == ABSID, TRCHI2DOF) < 3) & "
-    "(AMINCHILD('mu-' == ABSID, PROBNNmu) > 0.4)"
-  ),
-  MotherCut = "ALL")
-sel_comb = Selection(
-  'SelComb',
-  Algorithm = comb,
-  RequiredSelections = [sel_dtrs])
+  DecayDescriptor = decay_descriptor,
+  DaughtersCuts = daughter_cuts,
+  CombinationCut = combination_cuts,
+  MotherCut = "(HASVERTEX) & (VFASPF(VCHI2PDOF) < 10)")
 
-# Apply mother cuts
-cuts_mother = FilterDesktop('MotherCuts',
-  # TODO: & (PT > 2*GeV)
-  Code = "(HASVERTEX) & (VFASPF(VCHI2PDOF) < 10)")
-sel_mother = Selection(
-  "SelMother",
-  Algorithm = cuts_mother,
-  RequiredSelections=[sel_comb])
+# Selection
+sel_comb = Selection(
+  'selEtaMuMuGamma',
+  Algorithm = comb,
+  RequiredSelections = required_selections)
 
 # Final selection sequence
-seq = SelectionSequence('seqMuMuGamma', TopSelection = sel_mother)
+seq = SelectionSequence('seqMuMuGamma', TopSelection = sel_comb)
 
 # DaVinci algorithm sequence.
 DaVinci().appendToMainSequence([seq])
@@ -219,9 +205,8 @@ while evtnum < evtmax:
     if run:
       # Loop over MC truth particles
       for mcp in mcps:
-        pid = mcp.particleID()
         # Look at every eta
-        if abs(pid.pid()) in 221:
+        if abs(mcp.particleID().pid()) == 221:
           ntuple.fillMcp(mcp)
           fill = True
 
