@@ -1,13 +1,13 @@
 import ROOT
 tfile = ROOT.TFile("eta2MuMuGamma_mc.root")
 tfile.ls()
-ttree = tfile.Get("eta2mumugamma")
+ttree = tfile.Get("tree")
 
 # Create 2d histogram.
 dalitz = ROOT.TH2F(
   "dalitz", "eta->mumugamma; m^2_{gamma,mu+} [GeV]; m^2_{mu+,mu-} [GeV]",
-  100, 0, 120,
-  100, 0, 120
+  100, 0, .25,
+  100, 0, .25
 )
 
 m12s = []
@@ -18,10 +18,10 @@ for i in range(ttree.GetEntries()):
   ttree.GetEntry(i)
   p1 = p2 = p3 = None
 
-  for j, pid in enumerate(ttree.prt_pid):
+  for j, pid in enumerate(ttree.genprt_pid):
     # Calculate invariant mass (in GeV).
-    px, py, pz, e = (ttree.prt_px[j] / 1000., ttree.prt_py[j] / 1000., 
-                      ttree.prt_pz[j] / 1000., ttree.prt_e[j] / 1000.)
+    px, py, pz, e = (ttree.genprt_px[j] / 1000., ttree.genprt_py[j] / 1000., 
+                      ttree.genprt_pz[j] / 1000., ttree.genprt_e[j] / 1000.)
     if pid == 22: p1 = ROOT.TLorentzVector(px, py, pz, e)
     elif pid == -13: p2 = ROOT.TLorentzVector(px, py, pz, e)
     elif pid == 13: p3 = ROOT.TLorentzVector(px, py, pz, e)

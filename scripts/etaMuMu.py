@@ -206,6 +206,7 @@ while evtnum < evtmax:
       # Loop over MC truth particles
       for mcp in mcps:
         # Look at every eta
+        # TODO: get rid of this pid == 221 check and see if it still works
         if abs(mcp.particleID().pid()) == 221:
           ntuple.fillMcp(mcp)
           fill = True

@@ -10,7 +10,7 @@ leaf = "mcprt_pid"
 f = uproot.open("eta2MuMuGamma_mc.root")
 
 # get the tree
-tree = f["eta2mumugamma"]        # replace with actual tree name
+tree = f["tree"]        # replace with actual tree name
 
 # load the leaf into a NumPy array
 pid = ak.flatten(tree[leaf].array())
@@ -23,6 +23,6 @@ bins = np.arange(-13-0.5, 22+1.5, 1)
 plt.hist(pid, range=[-14,23], edgecolor='black', linewidth=1)
 plt.xlabel('Values')
 plt.ylabel('Events')
-plt.title(leaf + "plot")
+plt.title(leaf + " plot")
 plt.savefig("figs/" + leaf + "_focused.png")
 plt.close()

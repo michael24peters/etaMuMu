@@ -10,3 +10,4 @@ hist.GetYaxis().SetTitle("Count")
 print(hist.GetEntries())
 hist.Draw()
 ROOT.gPad.Print(name + ".png")
+
