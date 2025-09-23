@@ -6,8 +6,8 @@ ttree = tfile.Get("tree")
 # Create 2d histogram.
 dalitz = ROOT.TH2F(
   "dalitz", "eta->mumugamma; m^2_{gamma,mu+} [GeV]; m^2_{mu+,mu-} [GeV]",
-  100, 0, .25,
-  100, 0, .25
+  100, 0, .20,
+  100, 0, .30
 )
 
 m12s = []
@@ -44,4 +44,4 @@ print(f"m23 range: [{min(m23s):.4f}, {max(m23s):.4f}]")
 ROOT.gStyle.SetOptStat(0) # 0 = none, 1 = entries, 1111 = entries + mean + RMS
 c = ROOT.TCanvas()
 dalitz.Draw("COLZ")
-c.SaveAs("dalitz_all.png")
+c.SaveAs("figs/dalitz.png")

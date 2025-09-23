@@ -638,7 +638,8 @@ class Ntuple:
         dtrs = sorted(dtrs, key=lambda d: d['pid'])
       # Skip all etas which do not decay to mu+ mu- (gamma)
       pids = [d['pid'] for d in dtrs]
-      if pids not in ([-13, 13, 22], [-13, 13]): return
+#      if pids not in ([-13, 13, 22], [-13, 13]): return
+      if pids != [-13, 13, 22]: return
       # Otherwise recursively search for daughters
       for dtr in dtrs:
         (dtrPre, dtrIdx) = self.fillMcp(dtr['dtr'])

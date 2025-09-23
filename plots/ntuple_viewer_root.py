@@ -14,8 +14,8 @@ file = ROOT.TFile.Open("eta2MuMuGamma_mc.root")
 #file.ls() # print TFile structure
 tree = file.Get("tree")
 
-# Define histogram: 36 bins from -13.5 to 22.5
-hist = ROOT.TH1F("hits", f"{leaf} plots", 40, -15.5, 24.5)
+# Define histogram
+hist = ROOT.TH1F("hits", f"{leaf} plot", 38, -14.5, 23.5)
 hist.GetXaxis().SetTitle("Values")
 hist.GetYaxis().SetTitle("Events")
 
@@ -26,5 +26,5 @@ tree.Draw(f"{leaf} >> hits")
 c = ROOT.TCanvas("c", "", 800, 600)
 hist.Draw()
 c.Update()
-c.Print(f"figs/{leaf}.png")
+c.Print(f"figs/{leaf}_focused.png")
 
