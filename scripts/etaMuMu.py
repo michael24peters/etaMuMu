@@ -39,7 +39,10 @@ if IS_MC:
   # Found using "lb-dirac dirac-bookkeeping-production-information 00169948".
   DaVinci().DDDBtag = 'dddb-20210528-8'
   DaVinci().CondDBtag = 'sim-20201113-8-vc-md100-Sim10'
-  IOHelper('ROOT').inputFiles(['data/00169948_00000003_7.AllStreams.dst'],
+  IOHelper('ROOT').inputFiles(['data/00169948_00000003_7.AllStreams.dst',
+#                              'data/00169948_00000138_7.AllStreams.dst',
+#                              'data/00169948_00000138_7.AllStreams.dst',
+                              ],
                               clear = True)
 else:
   DaVinci().DataType = '2018' # !! TODO
@@ -206,6 +209,7 @@ while evtnum < evtmax:
       # Loop over MC truth particles
       for mcp in mcps:
         # Look at every eta
+        # TODO: get rid of this pid == 221 check and see if it still works
         if abs(mcp.particleID().pid()) == 221:
           ntuple.fillMcp(mcp)
           fill = True

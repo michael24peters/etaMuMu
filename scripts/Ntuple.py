@@ -44,7 +44,7 @@ class Ntuple:
     self.saved    = {}
     self.ntuple   = OrderedDict()
     self.tfile    = ROOT.TFile(name, 'RECREATE')
-    self.ttree    = ROOT.TTree('eta2mumugamma' if IS_MUMUGAMMA else 'eta2mumu', 'data')
+    self.ttree    = ROOT.TTree('tree', 'data')
     vrsVrt = ['x', 'y', 'z', 'dx', 'dy', 'dz']
     vrsMom = ['pid', 'px', 'py', 'pz', 'e']
     vrsMom = ['idx_gen'] + vrsMom # MC
@@ -61,7 +61,7 @@ class Ntuple:
               'hlt1_tos2', 'hlt1_tos3', 'hlt1_tis'] + [
               'hlt2_tos%i' % i for i in range(0, len(TrgLocs))] + ['hlt2_tis']
     self.vrsInit('pvr', vrsVrt)
-    self.vrsInit('tag', ['idx_pvr', 'idx_prt0', 'idx_prt1'] +
+    self.vrsInit('tag', ['idx_pvr', 'idx_prt0', 'idx_prt1', 'idx_prt2'] +
                   vrsMom + vrsVrt + vrsTag + vrsTrg)
     self.vrsInit('tag', ['ve_iso0', 've_iso1', 'ln_iso0', 'ln_iso1'])
     self.vrsInit('prt', ['idx_pvr'] + vrsMom + vrsPrt)
@@ -70,9 +70,17 @@ class Ntuple:
     if IS_MC: 
       vrsMcp = ['pid', 'q', 'px', 'py', 'pz', 'e', 'x', 'y', 'z']
       self.vrsInit('mcpvr', ['x', 'y', 'z'])
-      self.vrsInit('mctag', ['idx_pvr', 'idx_prt0', 'idx_prt1',  
+      self.vrsInit('mctag', ['idx_pvr', 'idx_prt0', 'idx_prt1', 'idx_prt2', 
                               'pid_mom'] + vrsMcp)
       self.vrsInit('mcprt', ['idx_pvr'] + vrsMcp)
+      
+      # Generator-level variables
+      vrsGen =  ['pid', 'q', 'px', 'py', 'pz', 'e', 'x', 'y', 'z']
+      self.vrsInit('genpvr', ['x', 'y', 'z'])
+      self.vrsInit('gentag', ['idx_pvr', 'idx_prt0', 'idx_prt1', 'idx_prt2',
+                              'pid_mom'] + vrsGen)
+      self.vrsInit('genprt', ['idx_pvr'] + vrsGen)
+
     self.ntuple['pvr_n'] = array.array('d', [-1])
     self.ntuple['run_n'] = array.array('d', [-1])
     self.ntuple['evt_n'] = array.array('d', [-1])
@@ -80,9 +88,9 @@ class Ntuple:
     self.ntuple['evt_spd'] = array.array('d', [-1])
     
     for key, val in self.ntuple.items():
-        if type(val) is array.array: self.ttree.Branch(key, val, key + '/D')
-        else: self.ttree.Branch(key, val)
-    
+      if type(val) is array.array: self.ttree.Branch(key, val, key + '/D')
+      else: self.ttree.Branch(key, val)    
+
   # ---------------------------------------------------------------------------
 
   def vrsInit(self, pre, vrs):
@@ -228,7 +236,7 @@ class Ntuple:
         # 7 -> calorimeter, so if the daughter has no hits in the calorimeter
         # but does have a muon PID, add the muon track. (Muons should skip the
         # calorimeter.)
-	# muonPID() contains info from muon system
+	    # muonPID() contains info from muon system
         if hits[7] == 0 and dtr.proto().muonPID():
           mu = dtr.proto().muonPID().muonTrack()
           trks += [(trk, mu)]
@@ -396,7 +404,7 @@ class Ntuple:
       for rel in rels: gen = rel.to() if rel.weight() > wgt else gen
       # Look at daughters of closest match gen-level particle. If they are
       # muons or photons, save them.
-      if gen: (genPre, genIdx) = self.fillMcp(gen)
+      if gen: (genPre, genIdx) = self.fillMcMatch(gen, pre)
       else: genIdx = -1
       self.fill('%s_idx_gen' % pre, genIdx)
     except: pass
@@ -484,18 +492,141 @@ class Ntuple:
 
   # ---------------------------------------------------------------------------
 
+  def fillMcMatch(self, prt, rec):
+    pid = prt.particleID().pid()
+    mom = prt.momentum()
+    pos = None
+    key = self.key(prt)
+    '''
+    Right now we're calling fillMcp for all rec->gen matched particles, spcifi-
+    -cally using the gen-level particle. It could be 221, -13, 13, 22, or some-
+    -thing else entirely. They could be composite or fundamental. If it is an
+    eta particle, check if its daughters are mu+ mu- (gamma). If so, save them.
+    But this isn't what we want to do.
+
+    What this does:
+    - Save ALL MC matched particles...
+    - ...but actually save every MC matched particle and every mu+ mu- (gamma) 
+      from gen-level eta -> mu+ mu- (gamma) instead
+
+    What we want:
+    - Save tag MC matched particles in mctag
+    - Save prt MC matched particles in mcprt
+    - See what got matched
+
+    Separately:
+    - Save all gen-level occurrence of eta -> mu+ mu- (gamma)
+
+    This is why mctag always has only pid 221 but mcprt has protons and a mix
+    of other composite and fundamental particles.
+    '''
+    pre = 'mctag' if rec == 'tag' else 'mcprt'
+    # Prevent filling same particle more than once.
+    if key in self.saved: return (pre, self.saved[key])
+
+#    # Daughters.
+#    if pre == 'mctag':
+#      dtrs = []
+#      idxs = []
+#      
+#      # Loop over decay vertices
+#      for vrt in prt.endVertices():
+#        # Loop over products of vertices (daughters)
+#        for dtr in vrt.products():
+#          if abs(dtr.particleID().pid()) in [13, 22]: 
+#            dtrs.append({'pid': dtr.particleID().pid(), 'dtr' : dtr})
+#        # Sort daughters by PID, i.e. always in {-13, 13(, 22)} order.
+#        dtrs = sorted(dtrs, key=lambda d: d['pid'])
+#      # Skip all etas which do not decay to mu+ mu- (gamma)
+#      pids = [d['pid'] for d in dtrs]
+#      if pids not in ([-13, 13, 22], [-13, 13]): return
+#      # Otherwise recursively search for daughters
+#      for dtr in dtrs:
+#        (dtrPre, dtrIdx) = self.fillMcp(dtr['dtr'])
+#        self.fill(dtrIdx, dtr['dtr'])
+#        idxs += [dtrIdx]
+#      
+#      # Fill daughter index
+#      for prtIdx, dtr in enumerate(idxs):
+#        self.fill('%s_idx_prt%i' % (pre, prtIdx), dtr)
+
+    # Save current index of TTree array, get next row index of TTree.
+    idx = self.ntuple['%s_px' % pre].size()
+    self.saved[key] = idx
+
+    # Momentum.
+    self.fillMom(pre, mom)
+
+    # PID.
+    self.fill('%s_q' % pre, float(prt.particleID().threeCharge()) / 3.0)
+    self.fill('%s_pid' % pre, pid)
+    # Fill PID of parent if possible
+    try: self.fill('%s_pid_mom' % pre, prt.originVertex().mother().
+                    particleID().pid())
+    # Failure could be from primary particles or incorrect MC information
+    except: self.fill('%s_pid_mom' % pre, 0)
+
+    # Vertex.
+    if not pos: pos = prt.originVertex().position()
+    self.fill('%s_x' % pre, pos.X())
+    self.fill('%s_y' % pre, pos.Y())
+    self.fill('%s_z' % pre, pos.Z())
+
+    # Primary vertex.
+    pvr = prt.primaryVertex()
+    if pvr:
+      key = self.key(pvr)
+      if not key in self.saved:
+        self.saved[key] = self.ntuple['mcpvr_x'].size()
+        self.fill('mcpvr_x', pvr.position().X())
+        self.fill('mcpvr_y', pvr.position().Y())
+        self.fill('mcpvr_z', pvr.position().Z())
+      self.fill('%s_idx_pvr' % pre, self.saved[key])
+    else: self.fill('%s_idx_pvr' % pre, -1)
+
+    return (pre, idx)
+
+  # ---------------------------------------------------------------------------
+
   def fillMcp(self, prt):
     pid = prt.particleID().pid()
     mom = prt.momentum()
     pos = None
     key = self.key(prt)
-    pre = 'mctag' if pid in [221] else 'mcprt'
+    '''
+    Right now we're calling fillMcp for all rec->gen matched particles, spcifi-
+    -cally using the gen-level particle. It could be 221, -13, 13, 22, or some-
+    -thing else entirely. They could be composite or fundamental. If it is an
+    eta particle, check if its daughters are mu+ mu- (gamma). If so, save them.
+    But this isn't what we want to do.
+
+    What this does:
+    - Save ALL MC matched particles...
+    - ...but actually save every MC matched particle and every mu+ mu- (gamma) 
+      from gen-level eta -> mu+ mu- (gamma) instead
+
+    What we want:
+    - Save tag MC matched particles in mctag
+    - Save prt MC matched particles in mcprt
+    - See what got matched
+
+    Separately:
+    - Save all gen-level occurrence of eta -> mu+ mu- (gamma)
+
+    This is why mctag always has only pid 221 but mcprt has protons and a mix
+    of other composite and fundamental particles.
+    '''
+    # For MC data, we only want to save eta -> mu+ mu- (gamma) occurrences, but
+    # only particles with pid 221 getting initially passed into fillMcp(), so
+    # this is a sufficient check.
+    pre = 'gentag' if pid in [221] else 'genprt'
     # Prevent filling same particle more than once.
     if key in self.saved: return (pre, self.saved[key])
 
     # Daughters.
-    if pre == 'mctag':
+    if pre == 'gentag':
       dtrs = []
+      idxs = []
       
       # Loop over decay vertices
       for vrt in prt.endVertices():
@@ -503,17 +634,22 @@ class Ntuple:
         for dtr in vrt.products():
           if abs(dtr.particleID().pid()) in [13, 22]: 
             dtrs.append({'pid': dtr.particleID().pid(), 'dtr' : dtr})
-        # Sort daughters by PID, i.e. always in {-13, 13, 22} order.
+        # Sort daughters by PID, i.e. always in {-13, 13(, 22)} order.
         dtrs = sorted(dtrs, key=lambda d: d['pid'])
-      
       # Skip all etas which do not decay to mu+ mu- (gamma)
       pids = [d['pid'] for d in dtrs]
-      if pids not in ([-13, 13, 22], [-13, 13]): return
-      
+#      if pids not in ([-13, 13, 22], [-13, 13]): return
+      if pids != [-13, 13, 22]: return
+      # Otherwise recursively search for daughters
       for dtr in dtrs:
-        idx = self.fillMcp(dtr['dtr'])
-        self.fill(idx, dtr['dtr'])
-    
+        (dtrPre, dtrIdx) = self.fillMcp(dtr['dtr'])
+        self.fill(dtrIdx, dtr['dtr'])
+        idxs += [dtrIdx]
+      
+      # Fill daughter index
+      for prtIdx, dtr in enumerate(idxs):
+        self.fill('%s_idx_prt%i' % (pre, prtIdx), dtr)
+
     # Save current index of TTree array, get next row index of TTree.
     idx = self.ntuple['%s_px' % pre].size()
     self.saved[key] = idx
