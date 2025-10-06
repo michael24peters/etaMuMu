@@ -78,8 +78,15 @@ class Ntuple:
       vrsGen =  ['pid', 'q', 'px', 'py', 'pz', 'e', 'x', 'y', 'z']
       self.vrsInit('genpvr', ['x', 'y', 'z'])
       self.vrsInit('gentag', ['idx_pvr', 'idx_prt0', 'idx_prt1', 'idx_prt2',
-                              'pid_mom'] + vrsGen)
-      self.vrsInit('genprt', ['idx_pvr'] + vrsGen)
+                                'pid_mom', 'eta', 'p'] + vrsGen)
+      self.vrsInit('genprt', ['idx_pvr', 'eta', 'p'] + vrsGen)
+
+      # Background variables
+      vrsBg =  ['pid', 'q', 'px', 'py', 'pz', 'e', 'x', 'y', 'z']
+      self.vrsInit('bgpvr', ['x', 'y', 'z'])
+      self.vrsInit('bgtag', ['idx_pvr', 'idx_prt0', 'idx_prt1', 'idx_prt2',
+                              'pid_mom'] + vrsBg)
+      self.vrsInit('bgprt', ['idx_pvr'] + vrsBg) 
 
     self.ntuple['pvr_n'] = array.array('d', [-1])
     self.ntuple['run_n'] = array.array('d', [-1])
@@ -404,7 +411,7 @@ class Ntuple:
       for rel in rels: gen = rel.to() if rel.weight() > wgt else gen
       # Look at daughters of closest match gen-level particle. If they are
       # muons or photons, save them.
-      if gen: (genPre, genIdx) = self.fillMcMatch(gen, pre)
+      if gen: (genPre, genIdx) = self.fillMcp(gen, pre)
       else: genIdx = -1
       self.fill('%s_idx_gen' % pre, genIdx)
     except: pass
@@ -492,63 +499,25 @@ class Ntuple:
 
   # ---------------------------------------------------------------------------
 
-  def fillMcMatch(self, prt, rec):
+  def pseudorapidity(self, prt):
+    from math import log
+    p = prt.p() # |p|
+    pz = prt.momentum().Pz()
+    return 0.5 * log((p + pz) / (p - pz))
+
+  # ---------------------------------------------------------------------------
+
+
+  # Fill all MC-matched particles (reconstruction -> generator-level mapping).
+  def fillMcp(self, prt, rec):
     pid = prt.particleID().pid()
     mom = prt.momentum()
     pos = None
     key = self.key(prt)
-    '''
-    Right now we're calling fillMcp for all rec->gen matched particles, spcifi-
-    -cally using the gen-level particle. It could be 221, -13, 13, 22, or some-
-    -thing else entirely. They could be composite or fundamental. If it is an
-    eta particle, check if its daughters are mu+ mu- (gamma). If so, save them.
-    But this isn't what we want to do.
 
-    What this does:
-    - Save ALL MC matched particles...
-    - ...but actually save every MC matched particle and every mu+ mu- (gamma) 
-      from gen-level eta -> mu+ mu- (gamma) instead
-
-    What we want:
-    - Save tag MC matched particles in mctag
-    - Save prt MC matched particles in mcprt
-    - See what got matched
-
-    Separately:
-    - Save all gen-level occurrence of eta -> mu+ mu- (gamma)
-
-    This is why mctag always has only pid 221 but mcprt has protons and a mix
-    of other composite and fundamental particles.
-    '''
     pre = 'mctag' if rec == 'tag' else 'mcprt'
     # Prevent filling same particle more than once.
     if key in self.saved: return (pre, self.saved[key])
-
-#    # Daughters.
-#    if pre == 'mctag':
-#      dtrs = []
-#      idxs = []
-#      
-#      # Loop over decay vertices
-#      for vrt in prt.endVertices():
-#        # Loop over products of vertices (daughters)
-#        for dtr in vrt.products():
-#          if abs(dtr.particleID().pid()) in [13, 22]: 
-#            dtrs.append({'pid': dtr.particleID().pid(), 'dtr' : dtr})
-#        # Sort daughters by PID, i.e. always in {-13, 13(, 22)} order.
-#        dtrs = sorted(dtrs, key=lambda d: d['pid'])
-#      # Skip all etas which do not decay to mu+ mu- (gamma)
-#      pids = [d['pid'] for d in dtrs]
-#      if pids not in ([-13, 13, 22], [-13, 13]): return
-#      # Otherwise recursively search for daughters
-#      for dtr in dtrs:
-#        (dtrPre, dtrIdx) = self.fillMcp(dtr['dtr'])
-#        self.fill(dtrIdx, dtr['dtr'])
-#        idxs += [dtrIdx]
-#      
-#      # Fill daughter index
-#      for prtIdx, dtr in enumerate(idxs):
-#        self.fill('%s_idx_prt%i' % (pre, prtIdx), dtr)
 
     # Save current index of TTree array, get next row index of TTree.
     idx = self.ntuple['%s_px' % pre].size()
@@ -584,41 +553,31 @@ class Ntuple:
       self.fill('%s_idx_pvr' % pre, self.saved[key])
     else: self.fill('%s_idx_pvr' % pre, -1)
 
+    # TODO: This will not catch falsely identified etas
+    # e.g. was actually a D meson but was identified as eta
+    if pre == 'mctag' and pid != 221: fillBkgd(prt, rec)
+    # TODO: This will not catch falsely identified daughters
+    # e.g. two rec muons actually one muon, falsely identified photon, etc.
+    elif pre == 'mcprt' and pid not in [-13, 13, 22]: fillBkgd(prt, rec)
+
     return (pre, idx)
 
   # ---------------------------------------------------------------------------
 
-  def fillMcp(self, prt):
+  # Save all gen-level occurrences of eta -> mu+ mu- gamma
+  def fillGen(self, prt):
     pid = prt.particleID().pid()
     mom = prt.momentum()
     pos = None
     key = self.key(prt)
-    '''
-    Right now we're calling fillMcp for all rec->gen matched particles, spcifi-
-    -cally using the gen-level particle. It could be 221, -13, 13, 22, or some-
-    -thing else entirely. They could be composite or fundamental. If it is an
-    eta particle, check if its daughters are mu+ mu- (gamma). If so, save them.
-    But this isn't what we want to do.
+    
+    # Check for LHCb acceptance range
+    eta = self.pseudorapidity(prt)
+    if eta < 2.0 or eta > 4.5: return (None, None)
 
-    What this does:
-    - Save ALL MC matched particles...
-    - ...but actually save every MC matched particle and every mu+ mu- (gamma) 
-      from gen-level eta -> mu+ mu- (gamma) instead
-
-    What we want:
-    - Save tag MC matched particles in mctag
-    - Save prt MC matched particles in mcprt
-    - See what got matched
-
-    Separately:
-    - Save all gen-level occurrence of eta -> mu+ mu- (gamma)
-
-    This is why mctag always has only pid 221 but mcprt has protons and a mix
-    of other composite and fundamental particles.
-    '''
     # For MC data, we only want to save eta -> mu+ mu- (gamma) occurrences, but
-    # only particles with pid 221 getting initially passed into fillMcp(), so
-    # this is a sufficient check.
+    # only particles with pid 221 getting initially passed in, so this is a 
+    # sufficient check.
     pre = 'gentag' if pid in [221] else 'genprt'
     # Prevent filling same particle more than once.
     if key in self.saved: return (pre, self.saved[key])
@@ -634,15 +593,94 @@ class Ntuple:
         for dtr in vrt.products():
           if abs(dtr.particleID().pid()) in [13, 22]: 
             dtrs.append({'pid': dtr.particleID().pid(), 'dtr' : dtr})
-        # Sort daughters by PID, i.e. always in {-13, 13(, 22)} order.
+        # Sort daughters by PID, i.e. always in {-13, 13, 22} order.
         dtrs = sorted(dtrs, key=lambda d: d['pid'])
-      # Skip all etas which do not decay to mu+ mu- (gamma)
+      # Skip all etas which do not decay exactly to mu+ mu- gamma
       pids = [d['pid'] for d in dtrs]
-#      if pids not in ([-13, 13, 22], [-13, 13]): return
       if pids != [-13, 13, 22]: return
-      # Otherwise recursively search for daughters
+      # Otherwise recursively fill daughters
       for dtr in dtrs:
-        (dtrPre, dtrIdx) = self.fillMcp(dtr['dtr'])
+        (dtrPre, dtrIdx) = self.fillGen(dtr['dtr'])
+        self.fill(dtrIdx, dtr['dtr'])
+        idxs += [dtrIdx]
+      
+      # Fill daughter index
+      for prtIdx, dtr in enumerate(idxs):
+        self.fill('%s_idx_prt%i' % (pre, prtIdx), dtr)
+
+    # Save current index of TTree array, get next row index of TTree.
+    idx = self.ntuple['%s_px' % pre].size()
+    self.saved[key] = idx
+
+    # Momentum.
+    self.fillMom(pre, mom)
+    self.fill('%s_p' % pre, prt.p())
+
+    # Pseudorapidity
+    self.fill('%s_eta' % pre, self.pseudorapidity(prt))
+
+    # PID.
+    self.fill('%s_q' % pre, float(prt.particleID().threeCharge()) / 3.0)
+    self.fill('%s_pid' % pre, pid)
+    # Fill PID of parent if possible
+    try: self.fill('%s_pid_mom' % pre, prt.originVertex().mother().
+                    particleID().pid())
+    # Failure could be from primary particles or incorrect MC information
+    except: self.fill('%s_pid_mom' % pre, 0)
+
+    # Vertex.
+    if not pos: pos = prt.originVertex().position()
+    self.fill('%s_x' % pre, pos.X())
+    self.fill('%s_y' % pre, pos.Y())
+    self.fill('%s_z' % pre, pos.Z())
+
+    # Primary vertex.
+    pvr = prt.primaryVertex()
+    if pvr:
+      key = self.key(pvr)
+      if not key in self.saved:
+        self.saved[key] = self.ntuple['mcpvr_x'].size()
+        self.fill('mcpvr_x', pvr.position().X())
+        self.fill('mcpvr_y', pvr.position().Y())
+        self.fill('mcpvr_z', pvr.position().Z())
+      self.fill('%s_idx_pvr' % pre, self.saved[key])
+    else: self.fill('%s_idx_pvr' % pre, -1)
+
+    return (pre, idx)
+
+  # ---------------------------------------------------------------------------
+
+  # Save generator-level information for background particles around the invar-
+  # -iant mass range of eta (547 MeV)
+  def fillBkgd(self, prt, rec):
+    pid = prt.particleID().pid()
+    mom = prt.momentum()
+    pos = None
+    key = self.key(prt)
+
+    pre = 'bgtag' if rec == 'tag' else 'bgprt'
+    # Prevent filling same particle more than once.
+    if key in self.saved: return (pre, self.saved[key])
+
+    # Daughters.
+    if pre == 'bgtag':
+      dtrs = []
+      idxs = []
+      
+      # Loop over decay vertices
+      for vrt in prt.endVertices():
+        # Loop over products of vertices (daughters)
+        for dtr in vrt.products():
+          # Save all daughters from composite particle
+          dtrs.append({'pid': dtr.particleID().pid(), 'dtr' : dtr})
+        # Sort daughters by PID, i.e. always in {-13, 13, 22} order.
+        dtrs = sorted(dtrs, key=lambda d: d['pid'])
+      pids = [d['pid'] for d in dtrs]
+      # Save decays that weren't exactly eta -> mu+ mu- gamma (i.e. background)
+      if pid == 221 and pids == [-13, 13, 22]: return
+      # If check passed, recursively fill daughters
+      for dtr in dtrs:
+        (dtrPre, dtrIdx) = self.fillGen(dtr['dtr'])
         self.fill(dtrIdx, dtr['dtr'])
         idxs += [dtrIdx]
       
@@ -686,5 +724,4 @@ class Ntuple:
 
     return (pre, idx)
 
-  # ---------------------------------------------------------------------------
 

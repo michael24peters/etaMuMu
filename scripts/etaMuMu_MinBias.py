@@ -37,13 +37,16 @@ if IS_MC:
   DaVinci().Lumi = False # Processing of luminosity data.
   DaVinci().Simulation = True # MC simulation data.
   # Found using "lb-dirac dirac-bookkeeping-production-information 00169948".
-  DaVinci().DDDBtag = 'dddb-20210528-8'
-  DaVinci().CondDBtag = 'sim-20201113-8-vc-md100-Sim10'
-  IOHelper('ROOT').inputFiles(['00090844_00000001_7.AllStreams.dst',
-                              '00090844_00000116_7.AllStreams.dst',
-#                              'data/00169948_00000003_7.AllStreams.dst',
-#                              'data/00169948_00000138_7.AllStreams.dst',
-#                              'data/00169948_00000138_7.AllStreams.dst',
+#  DaVinci().DDDBtag = 'dddb-20210528-8' # for 00169948
+#  DaVinci().CondDBtag = 'sim-20201113-8-vc-md100-Sim10' # for 00169948
+  DaVinci().DDDBtag = 'dddb-20170721-3' # for 00090844
+  DaVinci().CondDBtag = 'sim-20190128-vc-md100' # for 00090844
+  IOHelper('ROOT').inputFiles(['data/00090844_00000001_7.AllStreams.dst', # minbias
+                               'data/00090844_00000116_7.AllStreams.dst', # minbias
+                               'data/00090844_00000207_7.AllStreams.dst', # minbias
+#                              'data/00169948_00000003_7.AllStreams.dst', # eta->mumugamma
+#                              'data/00169948_00000138_7.AllStreams.dst', # eta->mumugamma
+#                              'data/00169948_00000138_7.AllStreams.dst', # eta->mumugamma
                               ],
                               clear = True)
 else:
@@ -68,7 +71,8 @@ if IS_MUMUGAMMA == True:
   daughter_cuts = {
     "mu+" : "(PT > 500*MeV) & (P > 3*GeV)",
     "mu-" : "(PT > 500*MeV) & (P > 3*GeV)",
-    "gamma" : "(PT > 500*MeV) & (CL > 0.2)" # ?? PT > 300*MeV & P>1.5*GeV & PROBNNgamma > 0>
+    # ?? PT > 300*MeV & P>1.5*GeV & PROBNNgamma > 0>
+    "gamma" : "(PT > 500*MeV) & (CL > 0.2)" 
   }
   required_selections = [muons, photons]
 # Repeat for eta -> mu+ mu-
@@ -210,7 +214,7 @@ while evtnum < evtmax:
     if run:
       # Loop over MC truth particles
       for mcp in mcps:
-        # Look at every eta
+        # Look at every eta, fill eta -> mu+ mu- gamma decay instances
         if abs(mcp.particleID().pid()) == 221:
           ntuple.fillGen(mcp)
           fill = True
