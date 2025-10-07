@@ -597,7 +597,10 @@ class Ntuple:
         dtrs = sorted(dtrs, key=lambda d: d['pid'])
       # Skip all etas which do not decay exactly to mu+ mu- gamma
       pids = [d['pid'] for d in dtrs]
-      if pids != [-13, 13, 22]: return
+      if pids != [-13, 13, 22]: return (None, None) # TODO: test (None, None)
+      # Skip all etas which do not have daughters with p >= 3 GeV
+      for dtr in dtrs:
+        if dtr['dtr'].p() < 3000: return (None, None) # TODO: test (None, None)
       # Otherwise recursively fill daughters
       for dtr in dtrs:
         (dtrPre, dtrIdx) = self.fillGen(dtr['dtr'])

@@ -41,12 +41,19 @@ if IS_MC:
 #  DaVinci().CondDBtag = 'sim-20201113-8-vc-md100-Sim10' # for 00169948
   DaVinci().DDDBtag = 'dddb-20170721-3' # for 00090844
   DaVinci().CondDBtag = 'sim-20190128-vc-md100' # for 00090844
-  IOHelper('ROOT').inputFiles(['data/00090844_00000001_7.AllStreams.dst', # minbias
-                               'data/00090844_00000116_7.AllStreams.dst', # minbias
-                               'data/00090844_00000207_7.AllStreams.dst', # minbias
-#                              'data/00169948_00000003_7.AllStreams.dst', # eta->mumugamma
-#                              'data/00169948_00000138_7.AllStreams.dst', # eta->mumugamma
-#                              'data/00169948_00000138_7.AllStreams.dst', # eta->mumugamma
+  IOHelper('ROOT').inputFiles(['data/minbias/00090844_00000001_7.AllStreams.dst', # minbias
+                               'data/minbias/00090844_00000048_7.AllStreams.dst', 
+                               'data/minbias/00090844_00000055_7.AllStreams.dst', 
+                               'data/minbias/00090844_00000075_7.AllStreams.dst', 
+                               'data/minbias/00090844_00000079_7.AllStreams.dst', 
+                               'data/minbias/00090844_00000108_7.AllStreams.dst', 
+                               'data/minbias/00090844_00000186_7.AllStreams.dst', 
+                               'data/minbias/00090844_00000193_7.AllStreams.dst', 
+                               'data/minbias/00090844_00000207_7.AllStreams.dst', 
+                               'data/minbias/00090844_00000227_7.AllStreams.dst', 
+                               'data/minbias/00090844_00000054_7.AllStreams.dst', 
+                               'data/minbias/00090844_00000176_7.AllStreams.dst', 
+#                              'data/norm/00169948_00000003_7.AllStreams.dst', # eta->mumugamma
                               ],
                               clear = True)
 else:
@@ -87,10 +94,10 @@ else:
 
 # Combination cuts
 combination_cuts = (
-  "(ADAMASS('eta') < 150*MeV) & "
-  "(AMAXDOCA('') < 0.4*mm) & "
-  "(AMAXCHILD('mu-' == ABSID, TRCHI2DOF) < 3) & "
-  "(AMINCHILD('mu-' == ABSID, PROBNNmu) > 0.4)"
+  "(ADAMASS('eta') < 150*MeV) & " # change based on side bands
+  "(AMAXDOCA('') < 0.4*mm) & " # doca btwn children
+  "(AMAXCHILD('mu-' == ABSID, TRCHI2DOF) < 3) & " # track
+  "(AMINCHILD('mu-' == ABSID, PROBNNmu) > 0.4)" # muon weights
 )
 print(f"outfile name: {outfile}")
 
@@ -100,6 +107,8 @@ comb = CombineParticles(
   DecayDescriptor = decay_descriptor,
   DaughtersCuts = daughter_cuts,
   CombinationCut = combination_cuts,
+  # vertex fit can fail, must pass
+  # vertex, hard to model this cut eff from data
   MotherCut = "(HASVERTEX) & (VFASPF(VCHI2PDOF) < 10)")
 
 # Selection
