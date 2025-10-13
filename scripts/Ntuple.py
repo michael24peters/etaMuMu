@@ -46,7 +46,7 @@ class Ntuple:
     self.tfile    = ROOT.TFile(name, 'RECREATE')
     self.ttree    = ROOT.TTree('tree', 'data')
     vrsVrt = ['x', 'y', 'z', 'dx', 'dy', 'dz']
-    vrsMom = ['pid', 'px', 'py', 'pz', 'e']
+    vrsMom = ['pid', 'px', 'py', 'pz', 'e', 'p', 'pT']
     vrsMom = ['idx_gen'] + vrsMom # MC
     vrsPrt = ['iso', 'mu', 'loose_mu', 'tight_mu', 'pnn_mu', 'pnn_pi',
               'pnn_k', 'pnn_p', 'pnn_ghost', 'prb_ghost', 'ip', 'ip_chi2',
@@ -68,25 +68,25 @@ class Ntuple:
     
     # MC data.
     if IS_MC: 
-      vrsMcp = ['pid', 'q', 'px', 'py', 'pz', 'e', 'x', 'y', 'z']
+      vrsMcp = ['pid', 'q', 'px', 'py', 'pz', 'e', 'p', 'pT', 'x', 'y', 'z']
       self.vrsInit('mcpvr', ['x', 'y', 'z'])
       self.vrsInit('mctag', ['idx_pvr', 'idx_prt0', 'idx_prt1', 'idx_prt2', 
                               'pid_mom'] + vrsMcp)
-      self.vrsInit('mcprt', ['idx_pvr'] + vrsMcp)
+      self.vrsInit('mcprt', ['idx_pvr', 'eta'] + vrsMcp)
       
       # Generator-level variables
-      vrsGen =  ['pid', 'q', 'px', 'py', 'pz', 'e', 'x', 'y', 'z']
+      vrsGen =  ['pid', 'q', 'px', 'py', 'pz', 'e', 'p', 'pT', 'x', 'y', 'z']
       self.vrsInit('genpvr', ['x', 'y', 'z'])
       self.vrsInit('gentag', ['idx_pvr', 'idx_prt0', 'idx_prt1', 'idx_prt2',
-                                'pid_mom', 'eta', 'p'] + vrsGen)
-      self.vrsInit('genprt', ['idx_pvr', 'eta', 'p'] + vrsGen)
+                                'pid_mom'] + vrsGen)
+      self.vrsInit('genprt', ['idx_pvr', 'eta'] + vrsGen)
 
       # Background variables
-      vrsBg =  ['pid', 'q', 'px', 'py', 'pz', 'e', 'x', 'y', 'z']
-      self.vrsInit('bgpvr', ['x', 'y', 'z'])
-      self.vrsInit('bgtag', ['idx_pvr', 'idx_prt0', 'idx_prt1', 'idx_prt2',
-                              'pid_mom'] + vrsBg)
-      self.vrsInit('bgprt', ['idx_pvr'] + vrsBg) 
+#      vrsBg =  ['pid', 'q', 'px', 'py', 'pz', 'e', 'p', 'pT', 'x', 'y', 'z']
+#      self.vrsInit('bgpvr', ['x', 'y', 'z'])
+#      self.vrsInit('bgtag', ['idx_pvr', 'idx_prt0', 'idx_prt1', 'idx_prt2',
+#                              'pid_mom'] + vrsBg)
+#      self.vrsInit('bgprt', ['idx_pvr'] + vrsBg) 
 
     self.ntuple['pvr_n'] = array.array('d', [-1])
     self.ntuple['run_n'] = array.array('d', [-1])
@@ -281,6 +281,8 @@ class Ntuple:
     # Momentum and mass.
     self.fill('%s_m' % pre, prt.measuredMass())
     self.fillMom(pre, mom)
+    self.fill('%s_p' % pre, prt.p())
+    self.fill('%s_pT' % pre, prt.pt())
 
     # Trigger.
     # TOS == Trigger On Signal, TIS == Trigger Independent of Signal,
@@ -525,6 +527,8 @@ class Ntuple:
 
     # Momentum.
     self.fillMom(pre, mom)
+    self.fill('%s_p' % pre, prt.p())
+    self.fill('%s_pT' % pre, prt.pt())
 
     # PID.
     self.fill('%s_q' % pre, float(prt.particleID().threeCharge()) / 3.0)
@@ -553,12 +557,12 @@ class Ntuple:
       self.fill('%s_idx_pvr' % pre, self.saved[key])
     else: self.fill('%s_idx_pvr' % pre, -1)
 
-    # TODO: This will not catch falsely identified etas
-    # e.g. was actually a D meson but was identified as eta
-    if pre == 'mctag' and pid != 221: fillBkgd(prt, rec)
-    # TODO: This will not catch falsely identified daughters
-    # e.g. two rec muons actually one muon, falsely identified photon, etc.
-    elif pre == 'mcprt' and pid not in [-13, 13, 22]: fillBkgd(prt, rec)
+#    # TODO: This will not catch falsely identified etas
+#    # e.g. was actually a D meson but was identified as eta
+#    if pre == 'mctag' and pid != 221: fillBkgd(prt, rec)
+#    # TODO: This will not catch falsely identified daughters
+#    # e.g. two rec muons actually one muon, falsely identified photon, etc.
+#    elif pre == 'mcprt' and pid not in [-13, 13, 22]: fillBkgd(prt, rec)
 
     return (pre, idx)
 
@@ -597,10 +601,12 @@ class Ntuple:
         dtrs = sorted(dtrs, key=lambda d: d['pid'])
       # Skip all etas which do not decay exactly to mu+ mu- gamma
       pids = [d['pid'] for d in dtrs]
-      if pids != [-13, 13, 22]: return (None, None) # TODO: test (None, None)
-      # Skip all etas which do not have daughters with p >= 3 GeV
+      if pids != [-13, 13, 22]: return (None, None)
       for dtr in dtrs:
-        if dtr['dtr'].p() < 3000: return (None, None) # TODO: test (None, None)
+        # Skip all etas which do not have muons with p >= 3 GeV
+        if dtr['pid'] in [-13, 13] and dtr['dtr'].p() < 3000: return (None, None)
+        # Skip all eta which do not have daughters with pT >= 500 MeV
+#        if dtr['dtr'].pt() < 500: return (None, None)
       # Otherwise recursively fill daughters
       for dtr in dtrs:
         (dtrPre, dtrIdx) = self.fillGen(dtr['dtr'])
@@ -618,6 +624,7 @@ class Ntuple:
     # Momentum.
     self.fillMom(pre, mom)
     self.fill('%s_p' % pre, prt.p())
+    self.fill('%s_pT' % pre, prt.pt())
 
     # Pseudorapidity
     self.fill('%s_eta' % pre, self.pseudorapidity(prt))
@@ -697,6 +704,8 @@ class Ntuple:
 
     # Momentum.
     self.fillMom(pre, mom)
+    self.fill('%s_p' % pre, prt.p())
+    self.fill('%s_pt' % pre, prt.pt())
 
     # PID.
     self.fill('%s_q' % pre, float(prt.particleID().threeCharge()) / 3.0)

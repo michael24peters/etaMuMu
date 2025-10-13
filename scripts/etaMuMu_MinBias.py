@@ -37,23 +37,25 @@ if IS_MC:
   DaVinci().Lumi = False # Processing of luminosity data.
   DaVinci().Simulation = True # MC simulation data.
   # Found using "lb-dirac dirac-bookkeeping-production-information 00169948".
-#  DaVinci().DDDBtag = 'dddb-20210528-8' # for 00169948
-#  DaVinci().CondDBtag = 'sim-20201113-8-vc-md100-Sim10' # for 00169948
-  DaVinci().DDDBtag = 'dddb-20170721-3' # for 00090844
-  DaVinci().CondDBtag = 'sim-20190128-vc-md100' # for 00090844
-  IOHelper('ROOT').inputFiles(['data/minbias/00090844_00000001_7.AllStreams.dst', # minbias
-                               'data/minbias/00090844_00000048_7.AllStreams.dst', 
-                               'data/minbias/00090844_00000055_7.AllStreams.dst', 
-                               'data/minbias/00090844_00000075_7.AllStreams.dst', 
-                               'data/minbias/00090844_00000079_7.AllStreams.dst', 
-                               'data/minbias/00090844_00000108_7.AllStreams.dst', 
-                               'data/minbias/00090844_00000186_7.AllStreams.dst', 
-                               'data/minbias/00090844_00000193_7.AllStreams.dst', 
-                               'data/minbias/00090844_00000207_7.AllStreams.dst', 
-                               'data/minbias/00090844_00000227_7.AllStreams.dst', 
-                               'data/minbias/00090844_00000054_7.AllStreams.dst', 
-                               'data/minbias/00090844_00000176_7.AllStreams.dst', 
-#                              'data/norm/00169948_00000003_7.AllStreams.dst', # eta->mumugamma
+  DaVinci().DDDBtag = 'dddb-20210528-8' # for 00169948
+  DaVinci().CondDBtag = 'sim-20201113-8-vc-md100-Sim10' # for 00169948
+#  DaVinci().DDDBtag = 'dddb-20170721-3' # for 00090844
+#  DaVinci().CondDBtag = 'sim-20190128-vc-md100' # for 00090844
+  IOHelper('ROOT').inputFiles([
+#                               'data/minbias/00090844_00000001_7.AllStreams.dst', # minbias
+#                               'data/minbias/00090844_00000048_7.AllStreams.dst', 
+#                               'data/minbias/00090844_00000055_7.AllStreams.dst', 
+#                               'data/minbias/00090844_00000075_7.AllStreams.dst', 
+#                               'data/minbias/00090844_00000079_7.AllStreams.dst', 
+#                               'data/minbias/00090844_00000108_7.AllStreams.dst', 
+#                               'data/minbias/00090844_00000186_7.AllStreams.dst', 
+#                               'data/minbias/00090844_00000193_7.AllStreams.dst', 
+#                               'data/minbias/00090844_00000207_7.AllStreams.dst', 
+#                               'data/minbias/00090844_00000227_7.AllStreams.dst', 
+#                               'data/minbias/00090844_00000054_7.AllStreams.dst', 
+#                               'data/minbias/00090844_00000176_7.AllStreams.dst', 
+                               'data/norm/00169948_00000003_7.AllStreams.dst', # eta->mumugamma
+                               'data/norm/00169948_00000138_7.AllStreams.dst'
                               ],
                               clear = True)
 else:
