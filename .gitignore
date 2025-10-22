@@ -1,3 +1,10 @@
+# pycache
+*/__pycache__/*
+
+# python artifacts
+*.swp
+*.pyc
+
 # data/ directory
 data/*
 

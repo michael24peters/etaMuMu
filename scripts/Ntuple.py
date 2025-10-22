@@ -26,8 +26,9 @@ class Ntuple:
 
   # ---------------------------------------------------------------------------
 
-  def __init__(self, name, IS_MC, IS_MUMUGAMMA, tes, genTool, rftTool, pvrTool, velTool, dstTool, 
-                detTool, trkTool, l0Tool, hlt1Tool, hlt2Tool):
+  def __init__(self, name, IS_MC, IS_MUMUGAMMA, tes, genTool, rftTool, pvrTool, 
+                velTool, dstTool, detTool, trkTool, l0Tool, hlt1Tool, 
+                hlt2Tool):
     from collections import OrderedDict
     import ROOT, array
     self.tes      = tes
@@ -46,14 +47,14 @@ class Ntuple:
     self.tfile    = ROOT.TFile(name, 'RECREATE')
     self.ttree    = ROOT.TTree('tree', 'data')
     vrsVrt = ['x', 'y', 'z', 'dx', 'dy', 'dz']
-    vrsMom = ['pid', 'px', 'py', 'pz', 'e', 'p', 'pT']
+    vrsMom = ['pid', 'px', 'py', 'pz', 'e']
     vrsMom = ['idx_gen'] + vrsMom # MC
     vrsPrt = ['iso', 'mu', 'loose_mu', 'tight_mu', 'pnn_mu', 'pnn_pi',
               'pnn_k', 'pnn_p', 'pnn_ghost', 'prb_ghost', 'ip', 'ip_chi2',
               'x0', 'y0', 'z0', 't0', 'p0', 'id0', 'z1', 'id1', 'id2',
               'id3', 'xm2', 'ym2', 'zm2']
-    # TODO not used: tag_doca, tag_chi2, tag_ve_iso0, tag_ve_iso1, tag_ln_iso0, tag_ln_iso1
-    # prt_iso
+    # TODO not used: tag_doca, tag_chi2, tag_ve_iso0, tag_ve_iso1, tag_ln_iso0,
+    # tag_ln_iso1, prt_iso
     vrsTag = ['m', 'dtf_m', 'dtf_dm', 'ip', 'ip_chi2', 'fd', 'fd_chi2', 
               'doca', 'dtf_chi2', 'chi2', 've_ns', 'tt_ns', 'it_ns', 
               'ot_ns', 'mu_ns']
@@ -61,32 +62,23 @@ class Ntuple:
               'hlt1_tos2', 'hlt1_tos3', 'hlt1_tis'] + [
               'hlt2_tos%i' % i for i in range(0, len(TrgLocs))] + ['hlt2_tis']
     self.vrsInit('pvr', vrsVrt)
-    self.vrsInit('tag', ['idx_pvr', 'idx_prt0', 'idx_prt1', 'idx_prt2'] +
-                  vrsMom + vrsVrt + vrsTag + vrsTrg)
+    self.vrsInit('tag', ['idx_pvr'] + vrsMom + vrsVrt + vrsTag + vrsTrg)
     self.vrsInit('tag', ['ve_iso0', 've_iso1', 'ln_iso0', 'ln_iso1'])
-    self.vrsInit('prt', ['idx_pvr'] + vrsMom + vrsPrt)
+    self.vrsInit('prt', ['idx_pvr', 'idx_mom'] + vrsMom + vrsPrt)
     
     # MC data.
     if IS_MC: 
-      vrsMcp = ['pid', 'q', 'px', 'py', 'pz', 'e', 'p', 'pT', 'x', 'y', 'z']
+      vrsMcp = ['pid', 'q', 'px', 'py', 'pz', 'e', 'x', 'y', 'z']
       self.vrsInit('mcpvr', ['x', 'y', 'z'])
-      self.vrsInit('mctag', ['idx_pvr', 'idx_prt0', 'idx_prt1', 'idx_prt2', 
-                              'pid_mom'] + vrsMcp)
-      self.vrsInit('mcprt', ['idx_pvr', 'eta'] + vrsMcp)
+      self.vrsInit('mctag', ['idx_pvr'] + vrsMcp)
+      self.vrsInit('mcprt', ['idx_pvr', 'idx_mom', 'pid_mom', 'idx_og_mom', 
+                   'pid_og_mom', 'eta'] + vrsMcp)
       
       # Generator-level variables
-      vrsGen =  ['pid', 'q', 'px', 'py', 'pz', 'e', 'p', 'pT', 'x', 'y', 'z']
+      vrsGen =  ['pid', 'q', 'px', 'py', 'pz', 'e', 'x', 'y', 'z']
       self.vrsInit('genpvr', ['x', 'y', 'z'])
-      self.vrsInit('gentag', ['idx_pvr', 'idx_prt0', 'idx_prt1', 'idx_prt2',
-                                'pid_mom'] + vrsGen)
-      self.vrsInit('genprt', ['idx_pvr', 'eta'] + vrsGen)
-
-      # Background variables
-#      vrsBg =  ['pid', 'q', 'px', 'py', 'pz', 'e', 'p', 'pT', 'x', 'y', 'z']
-#      self.vrsInit('bgpvr', ['x', 'y', 'z'])
-#      self.vrsInit('bgtag', ['idx_pvr', 'idx_prt0', 'idx_prt1', 'idx_prt2',
-#                              'pid_mom'] + vrsBg)
-#      self.vrsInit('bgprt', ['idx_pvr'] + vrsBg) 
+      self.vrsInit('gentag', ['idx_pvr'] + vrsGen)
+      self.vrsInit('genprt', ['idx_pvr','idx_mom', 'pid_mom'] + vrsGen)
 
     self.ntuple['pvr_n'] = array.array('d', [-1])
     self.ntuple['run_n'] = array.array('d', [-1])
@@ -106,13 +98,12 @@ class Ntuple:
 
   # ---------------------------------------------------------------------------
 
-  """
-  Return key for particle based on its physical properties, in priority order of 
-  momentum, track, calorimeter.
-  """
   def key(self, obj):
     """
     Generate the key for an object.
+    Return key for particle based on its physical properties, in order of
+    momentum, track, calorimeter.
+    obj : Object, usually of type Particle or MCParticle
     """
 
     key = None
@@ -161,6 +152,10 @@ class Ntuple:
   def fill(self, key = None, val = None, idx = None, vrs = None):
     """
     Fill the ntuple for either an event or an object.
+    key : float, creates identifier for particle from its momentum
+    val : value to key-value pair, usually the particle information
+    idx : index of the particle (?)
+    vrs : not in use (!!)
     """
 
     if key == None or val == None: self.tfile.Cd(''); self.ttree.Fill()
@@ -172,7 +167,9 @@ class Ntuple:
 
   def fillVrt(self, pre, vrt, cov = None, pos = None):
     """
-    Fill an object's vertex information
+    Fill an object's vertex information (vrt : Vertex), including 
+    CovariantMatrix (cov) and Position (pos) information based on its ntuple
+    prefix (pre).
     """
 
     from math import sqrt
@@ -189,7 +186,8 @@ class Ntuple:
 
   def fillMom(self, pre, mom):
     """
-    Fill an object's momentum
+    Fill an object's Momentum (mom : LorentzVector) information based on its
+    ntuple prefix (pre : String).
     """
 
     self.fill('%s_px' % pre, mom.Px())
@@ -207,12 +205,12 @@ class Ntuple:
 
   # ---------------------------------------------------------------------------
 
-  """
-  prt  : Particle object
-  pvrs : primary vertices
-  prts : vector<Particle>, vector of Particle objects
-  """
   def fillPrt(self, prt, pvrs = None, prts = None):
+    """
+    Fill all available particle (prt) information into ntuple, including its
+    primary vertex information (pvrs).
+    """
+
     pid = prt.particleID().pid()
     pro = prt.proto() # ProtoParticle
     # Try to get raw Particle data
@@ -227,35 +225,31 @@ class Ntuple:
     key = self.key(prt) # Generate unique key for particle.
     pre = 'tag' if vrt else 'prt'
 
+    # Save current index of TTree array for daughters to reference.
+    idx = self.ntuple['%s_px' % pre].size()
+    self.saved[key] = idx
+
     # Daughters.
     if pre == 'tag': # tag => candidate => has daughters
       trks = []
-      idxs = []
       hits = [0]*13 # Default (to prevent segfault)
       for dtr in prt.daughters():
         (dtrPre, dtrIdx) = self.fillPrt(dtr) # Recursively loop thru daughters
-        idxs += [dtrIdx]
+
+        # Mother (tag) indexing for daughters (prt)
+        try: self.fill('%s_idx_mom' % dtrPre, idx if idx is not None else -1)
+        except: pass
+
         # Extract daughter track if able
         if dtr.proto() and dtr.proto().track():
           trk, mu = dtr.proto().track(), None
           # Store each hit in each sub-detector in a dictionary
           if trk: hits = self.hits(trk)
-        # 7 -> calorimeter, so if the daughter has no hits in the calorimeter
-        # but does have a muon PID, add the muon track. (Muons should skip the
-        # calorimeter.)
-	    # muonPID() contains info from muon system
+        # 7 == CALO. If dtr has no hits in calo but does in muon chambers, add
+        # the muon track. (Muons should skip the calo.)
         if hits[7] == 0 and dtr.proto().muonPID():
           mu = dtr.proto().muonPID().muonTrack()
           trks += [(trk, mu)]
-      ## !! Index daughters by linking candiate to prtIdx-th daughter.
-      ## Example: 'tag_idx_prt0 = 42' means the first daughter of the candidate
-      ## is entry 42 in the tree. !!
-      for prtIdx, dtr in enumerate(idxs):
-        self.fill('%s_idx_prt%i' % (pre, prtIdx), dtr)
-
-    # Save current index of TTree array (for building decay tree?)
-    idx = self.ntuple['%s_px' % pre].size()
-    self.saved[key] = idx
 
     if pre == 'tag':
       # Find shared hits.
@@ -281,8 +275,6 @@ class Ntuple:
     # Momentum and mass.
     self.fill('%s_m' % pre, prt.measuredMass())
     self.fillMom(pre, mom)
-    self.fill('%s_p' % pre, prt.p())
-    self.fill('%s_pT' % pre, prt.pt())
 
     # Trigger.
     # TOS == Trigger On Signal, TIS == Trigger Independent of Signal,
@@ -392,14 +384,12 @@ class Ntuple:
           self.fill('%s_t%i' % (pre, hit), d.globalR(s.strip(), 0))
           self.fill('%s_p%i' % (pre, hit), d.rPitch(s.strip()))
 
-      ## ?? What does this do? ??
       # Muon extrapolation.
       z = 15270.0 # Muon system region
       # Propagated state vector
       v = GaudiPython.gbl.LHCb.StateVector()
       # Save extrapolated position
-      ### ?? ADDED THIS CHECK TO PREVENT SEGFAULT ERROR ??
-      if trk:
+      if trk: # prevents segfault error
         self.trkTool.propagate(trk, z, v, prt.particleID())
         self.fill('%s_xm2' % pre, v.x())
         self.fill('%s_ym2' % pre, v.y())
@@ -427,7 +417,7 @@ class Ntuple:
     # likely isn't prompt (PV) eta and instead displaced (SV) other particle
     # (e.g. B or D meson) producing decay that fakes an eta.
     if pvr: self.dstTool.distance(prt, pvr, ip, ipChi2)
-    self.fill('%s_ip' % pre, ip.value) # need to convert c_double to python float
+    self.fill('%s_ip' % pre, ip.value) # need to convert c_double to pyth float
     self.fill('%s_ip_chi2' % pre, ipChi2.value) # same here
     fd, fdChi2 = c_double(-1.0), c_double(-1.0)
     # Compute Flight Distance (FD)
@@ -438,11 +428,11 @@ class Ntuple:
     # happen to look right. Or it could mean the tracks were mis-constructed and
     # really should have been identified as an eta candidate.
     if pvr and vrt: self.dstTool.distance(vrt, pvr, fd, fdChi2)
-    self.fill('%s_fd' % pre, fd.value) # need to convert c_double to python float
+    self.fill('%s_fd' % pre, fd.value) # need to convert c_double to pyth float
     self.fill('%s_fd_chi2' % pre, fdChi2.value) # same here
 
     # Isolation.
-    # !! Removed for now.
+    # !! Removed for now. See DiMuon.py for implementation.
 
     # Primary vertex.
     if pvr:
@@ -460,48 +450,53 @@ class Ntuple:
 
   # ---------------------------------------------------------------------------
 
-  """
-  hits() and share() combined find the tracks that have common hits. If they
-  have many shared hits, they may be an identical track and thus are thus a
-  fake particle. This is useful for 'clone rejection'.
-  """
   def hits(self, trk1, trk2 = None, mu1 = None, mu2 = None, dct = None):
-      if dct == None: dct = {n:0 for n in range(0, 13)}
-      if not trk1: return dct
-      id1s = [id1 for id1 in trk1.lhcbIDs()]
-      id2s = [id2 for id2 in trk2.lhcbIDs()] if trk2 else []
-      if mu1: id1s += [id1 for id1 in mu1.lhcbIDs()]
-      if mu2: id2s += [id2 for id2 in mu2.lhcbIDs()]
-      for id1 in id1s:
-          cat1 = id1.detectorType()
-          chn1 = id1.channelID()
-          if not trk2: dct[cat1] += 1; dct[0] += 1
-          for id2 in id2s:
-              cat2 = id2.detectorType()
-              chn2 = id2.channelID()
-              if chn1 == chn2:
-                  dct[0] += 1
-                  if cat1 == cat2: dct[cat1] += 1
-      return dct
+    """
+    hits() and share() combined find the tracks that have common hits. If they
+    have many shared hits, they may be an identical track and thus are thus a
+    fake particle. This is useful for 'clone rejection'.
+    """
+
+    if dct == None: dct = {n:0 for n in range(0, 13)}
+    if not trk1: return dct
+    id1s = [id1 for id1 in trk1.lhcbIDs()]
+    id2s = [id2 for id2 in trk2.lhcbIDs()] if trk2 else []
+    if mu1: id1s += [id1 for id1 in mu1.lhcbIDs()]
+    if mu2: id2s += [id2 for id2 in mu2.lhcbIDs()]
+    for id1 in id1s:
+      cat1 = id1.detectorType()
+      chn1 = id1.channelID()
+      if not trk2: dct[cat1] += 1; dct[0] += 1
+      for id2 in id2s:
+        cat2 = id2.detectorType()
+        chn2 = id2.channelID()
+        if chn1 == chn2:
+          dct[0] += 1
+          if cat1 == cat2: dct[cat1] += 1
+    return dct
 
   # ---------------------------------------------------------------------------
 
   def share(self, trks):
-      ns = {n:0 for n in range(0, 13)}
-      for trk1 in trks:
-          for trk2 in trks:
-              if trk1[0] == trk2[0]: continue
-              hits = self.hits(trk1[0], trk2[0], trk1[1], trk2[1])
-              for key, val in hits.items():
-                  if val > ns[key]: ns[key] = val
-      for cat in TrkCats:
-          n = ns[cat[1]]
-          self.fill('tag_%s_ns' % (cat[0]), n)
-      return ns[TrkCats[0][1]]
+    ns = {n:0 for n in range(0, 13)}
+    for trk1 in trks:
+      for trk2 in trks:
+        if trk1[0] == trk2[0]: continue
+        hits = self.hits(trk1[0], trk2[0], trk1[1], trk2[1])
+        for key, val in hits.items():
+          if val > ns[key]: ns[key] = val
+    for cat in TrkCats:
+      n = ns[cat[1]]
+      self.fill('tag_%s_ns' % (cat[0]), n)
+    return ns[TrkCats[0][1]]
 
   # ---------------------------------------------------------------------------
 
   def pseudorapidity(self, prt):
+    """
+    Calculates the pseudorapidity of a particle (prt).
+    """
+
     from math import log
     p = prt.p() # |p|
     pz = prt.momentum().Pz()
@@ -509,9 +504,12 @@ class Ntuple:
 
   # ---------------------------------------------------------------------------
 
-
-  # Fill all MC-matched particles (reconstruction -> generator-level mapping).
   def fillMcp(self, prt, rec):
+    """
+    Fill MC-matched particle (prt) based on its reconstruction tag (rec), i.e.
+    reconstruction -> MC generator-level mapping.
+    """
+
     pid = prt.particleID().pid()
     mom = prt.momentum()
     pos = None
@@ -527,17 +525,19 @@ class Ntuple:
 
     # Momentum.
     self.fillMom(pre, mom)
-    self.fill('%s_p' % pre, prt.p())
-    self.fill('%s_pT' % pre, prt.pt())
+    
+    # Immediate mother.
+    try: self.fill('%s_pid_mom' % pre, prt.mother().particleID().pid())
+    except: self.fill('%s_pid_mom' % pre, 0)
+
+    # Origin mother. 
+    try: self.fill('%s_pid_og_mom' % pre, prt.originVertex().mother().
+                    particleID().pid())
+    except: self.fill('%s_pid_og_mom' % pre, 0)
 
     # PID.
     self.fill('%s_q' % pre, float(prt.particleID().threeCharge()) / 3.0)
     self.fill('%s_pid' % pre, pid)
-    # Fill PID of parent if possible
-    try: self.fill('%s_pid_mom' % pre, prt.originVertex().mother().
-                    particleID().pid())
-    # Failure could be from primary particles or incorrect MC information
-    except: self.fill('%s_pid_mom' % pre, 0)
 
     # Vertex.
     if not pos: pos = prt.originVertex().position()
@@ -568,17 +568,18 @@ class Ntuple:
 
   # ---------------------------------------------------------------------------
 
-  # Save all gen-level occurrences of eta -> mu+ mu- gamma
   def fillGen(self, prt):
+    """
+    Save particle (prt) which is part of a gen-level occurrence of eta -> mu+ 
+    mu- gamma.
+    """
+
     pid = prt.particleID().pid()
     mom = prt.momentum()
     pos = None
     key = self.key(prt)
-    
-    # Check for LHCb acceptance range
-    eta = self.pseudorapidity(prt)
-    if eta < 2.0 or eta > 4.5: return (None, None)
-
+    idx = -1
+ 
     # For MC data, we only want to save eta -> mu+ mu- (gamma) occurrences, but
     # only particles with pid 221 getting initially passed in, so this is a 
     # sufficient check.
@@ -589,42 +590,53 @@ class Ntuple:
     # Daughters.
     if pre == 'gentag':
       dtrs = []
-      idxs = []
-      
-      # Loop over decay vertices
+      accept = True
+
+      # Loop over decay vertices and collect all daughters.
       for vrt in prt.endVertices():
         # Loop over products of vertices (daughters)
         for dtr in vrt.products():
-          if abs(dtr.particleID().pid()) in [13, 22]: 
+          if dtr.particleID().pid() in [-13, 13, 22]: 
             dtrs.append({'pid': dtr.particleID().pid(), 'dtr' : dtr})
         # Sort daughters by PID, i.e. always in {-13, 13, 22} order.
         dtrs = sorted(dtrs, key=lambda d: d['pid'])
+      
       # Skip all etas which do not decay exactly to mu+ mu- gamma
       pids = [d['pid'] for d in dtrs]
-      if pids != [-13, 13, 22]: return (None, None)
-      for dtr in dtrs:
+      accept = accept and pids == [-13, 13, 22]
+      
+      # Kinematics checks.
+      for dtr in dtrs: 
+        # Check for LHCb acceptance range
+        accept = accept and (2.0 < self.pseudorapidity(dtr['dtr']) < 4.5)
         # Skip all etas which do not have muons with p >= 3 GeV
-        if dtr['pid'] in [-13, 13] and dtr['dtr'].p() < 3000: return (None, None)
+        if dtr['pid'] in [-13, 13]: accept = accept and dtr['dtr'].p() > 3000
         # Skip all eta which do not have daughters with pT >= 500 MeV
-#        if dtr['dtr'].pt() < 500: return (None, None)
-      # Otherwise recursively fill daughters
+        accept = accept and dtr['dtr'].pt() > 500
+
+      # Acceptance checks.
+      if not accept: return (None, None)
+     
+      # Save particle index (of gentag).
+      idx = self.ntuple['%s_px' % pre].size()
+      self.saved[key] = idx
+
+      # Recurse into daughters, collect info.
       for dtr in dtrs:
         (dtrPre, dtrIdx) = self.fillGen(dtr['dtr'])
-        self.fill(dtrIdx, dtr['dtr'])
-        idxs += [dtrIdx]
-      
-      # Fill daughter index
-      for prtIdx, dtr in enumerate(idxs):
-        self.fill('%s_idx_prt%i' % (pre, prtIdx), dtr)
+        # Fill index for mother particle
+        try: self.fill('%s_idx_mom' % pre, idx)
+        except: self.fill('%s_idx_mom' % pre, -1)
+        # Sanity check (should always be 221)
+        self.fill('%s_pid_mom' % pre, dtr['dtr'].mother().particleID().pid()) 
 
-    # Save current index of TTree array, get next row index of TTree.
+    # Save particle index.
+    # Note: redundant for gentag
     idx = self.ntuple['%s_px' % pre].size()
     self.saved[key] = idx
 
     # Momentum.
     self.fillMom(pre, mom)
-    self.fill('%s_p' % pre, prt.p())
-    self.fill('%s_pT' % pre, prt.pt())
 
     # Pseudorapidity
     self.fill('%s_eta' % pre, self.pseudorapidity(prt))
@@ -632,11 +644,6 @@ class Ntuple:
     # PID.
     self.fill('%s_q' % pre, float(prt.particleID().threeCharge()) / 3.0)
     self.fill('%s_pid' % pre, pid)
-    # Fill PID of parent if possible
-    try: self.fill('%s_pid_mom' % pre, prt.originVertex().mother().
-                    particleID().pid())
-    # Failure could be from primary particles or incorrect MC information
-    except: self.fill('%s_pid_mom' % pre, 0)
 
     # Vertex.
     if not pos: pos = prt.originVertex().position()
@@ -657,83 +664,4 @@ class Ntuple:
     else: self.fill('%s_idx_pvr' % pre, -1)
 
     return (pre, idx)
-
-  # ---------------------------------------------------------------------------
-
-  # Save generator-level information for background particles around the invar-
-  # -iant mass range of eta (547 MeV)
-  def fillBkgd(self, prt, rec):
-    pid = prt.particleID().pid()
-    mom = prt.momentum()
-    pos = None
-    key = self.key(prt)
-
-    pre = 'bgtag' if rec == 'tag' else 'bgprt'
-    # Prevent filling same particle more than once.
-    if key in self.saved: return (pre, self.saved[key])
-
-    # Daughters.
-    if pre == 'bgtag':
-      dtrs = []
-      idxs = []
-      
-      # Loop over decay vertices
-      for vrt in prt.endVertices():
-        # Loop over products of vertices (daughters)
-        for dtr in vrt.products():
-          # Save all daughters from composite particle
-          dtrs.append({'pid': dtr.particleID().pid(), 'dtr' : dtr})
-        # Sort daughters by PID, i.e. always in {-13, 13, 22} order.
-        dtrs = sorted(dtrs, key=lambda d: d['pid'])
-      pids = [d['pid'] for d in dtrs]
-      # Save decays that weren't exactly eta -> mu+ mu- gamma (i.e. background)
-      if pid == 221 and pids == [-13, 13, 22]: return
-      # If check passed, recursively fill daughters
-      for dtr in dtrs:
-        (dtrPre, dtrIdx) = self.fillGen(dtr['dtr'])
-        self.fill(dtrIdx, dtr['dtr'])
-        idxs += [dtrIdx]
-      
-      # Fill daughter index
-      for prtIdx, dtr in enumerate(idxs):
-        self.fill('%s_idx_prt%i' % (pre, prtIdx), dtr)
-
-    # Save current index of TTree array, get next row index of TTree.
-    idx = self.ntuple['%s_px' % pre].size()
-    self.saved[key] = idx
-
-    # Momentum.
-    self.fillMom(pre, mom)
-    self.fill('%s_p' % pre, prt.p())
-    self.fill('%s_pt' % pre, prt.pt())
-
-    # PID.
-    self.fill('%s_q' % pre, float(prt.particleID().threeCharge()) / 3.0)
-    self.fill('%s_pid' % pre, pid)
-    # Fill PID of parent if possible
-    try: self.fill('%s_pid_mom' % pre, prt.originVertex().mother().
-                    particleID().pid())
-    # Failure could be from primary particles or incorrect MC information
-    except: self.fill('%s_pid_mom' % pre, 0)
-
-    # Vertex.
-    if not pos: pos = prt.originVertex().position()
-    self.fill('%s_x' % pre, pos.X())
-    self.fill('%s_y' % pre, pos.Y())
-    self.fill('%s_z' % pre, pos.Z())
-
-    # Primary vertex.
-    pvr = prt.primaryVertex()
-    if pvr:
-      key = self.key(pvr)
-      if not key in self.saved:
-        self.saved[key] = self.ntuple['mcpvr_x'].size()
-        self.fill('mcpvr_x', pvr.position().X())
-        self.fill('mcpvr_y', pvr.position().Y())
-        self.fill('mcpvr_z', pvr.position().Z())
-      self.fill('%s_idx_pvr' % pre, self.saved[key])
-    else: self.fill('%s_idx_pvr' % pre, -1)
-
-    return (pre, idx)
-
 
