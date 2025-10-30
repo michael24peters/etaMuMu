@@ -171,7 +171,7 @@ class Ntuple:
     def fillVrt(self, pre, vrt, cov=None, pos=None):
         """
         Fill an object's vertex information (vrt : Vertex), including
-        CovariantMatrix (cov) and Position (pos) information based on its
+        Covariant Matrix (cov) and Position (pos) information based on its
         ntuple prefix (pre).
         """
 
@@ -544,10 +544,7 @@ class Ntuple:
         self.fill('%s_pid' % pre, pid)
 
         # Vertex.
-        if not pos: pos = prt.originVertex().position()
-        self.fill('%s_x' % pre, pos.X())
-        self.fill('%s_y' % pre, pos.Y())
-        self.fill('%s_z' % pre, pos.Z())
+        self.fillVrt(pre, prt.originVertex())
 
         # Primary vertex.
         pvr = prt.primaryVertex()
@@ -560,13 +557,6 @@ class Ntuple:
                 self.fill('mcpvr_z', pvr.position().Z())
             self.fill('%s_idx_pvr' % pre, self.saved[key])
         else: self.fill('%s_idx_pvr' % pre, -1)
-
-#    # TODO: This will not catch falsely identified etas
-#    # e.g. was actually a D meson but was identified as eta
-#    if pre == 'mctag' and pid != 221: fillBkgd(prt, rec)
-#    # TODO: This will not catch falsely identified daughters
-#    # e.g. two rec muons actually one muon, falsely identified photon, etc.
-#    elif pre == 'mcprt' and pid not in [-13, 13, 22]: fillBkgd(prt, rec)
 
         return (pre, idx)
 
@@ -654,10 +644,7 @@ class Ntuple:
         self.fill('%s_pid' % pre, pid)
 
         # Vertex.
-        if not pos: pos = prt.originVertex().position()
-        self.fill('%s_x' % pre, pos.X())
-        self.fill('%s_y' % pre, pos.Y())
-        self.fill('%s_z' % pre, pos.Z())
+        self.fillVrt(pre, prt.originVertex())
 
         # Primary vertex.
         pvr = prt.primaryVertex()

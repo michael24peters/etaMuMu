@@ -84,28 +84,23 @@ from datetime import datetime
 extension = "_" + str(datetime.now().strftime("%Y%m%d")) + ".root"
 
 # Decay mode config
-if IS_MUMUGAMMA is True:
-    # Output file
-    outfile = 'eta2MuMuGamma' + ('_mc' if IS_MC else '_data') + extension
-    # Decay descriptor
+daughter_cuts = {
+    "mu+": "(PT > 500*MeV) & (P > 3*GeV)",
+    "mu-": "(PT > 500*MeV) & (P > 3*GeV)"
+}
+required_selections = [muons]
+if IS_MUMUGAMMA:
+    # Append gamma cuts and selection
+    daughter_cuts["gamma"] = "(PT > 500*MeV) & (CL > 0.2)"
+    required_selections.append(photons)
+    outfile = 'eta2MuMuGamma' + ('_mc' if IS_MC else '') + extension
     decay_descriptor = "eta -> mu+ mu- gamma"
-    # Daughter cuts
-    daughter_cuts = {
-        "mu+": "(PT > 500*MeV) & (P > 3*GeV)",
-        "mu-": "(PT > 500*MeV) & (P > 3*GeV)",
-        # ?? PT > 300*MeV & P>1.5*GeV & PROBNNgamma > 0>
-        "gamma": "(PT > 500*MeV) & (CL > 0.2)"
-    }
-    required_selections = [muons, photons]
-# Repeat for eta -> mu+ mu-
+
 else:
-    outfile = 'eta2MuMu' + ('_mc' if IS_MC else '_data') + extension
+    outfile = 'eta2MuMu' + ('_mc' if IS_MC else '') + extension
     decay_descriptor = "eta -> mu+ mu-"
-    daughter_cuts = {
-        "mu+": "(PT > 500*MeV) & (P > 3*GeV)",
-        "mu-": "(PT > 500*MeV) & (P > 3*GeV)",
-    }
-    required_selections = [muons]
+
+print(f"outfile name: {outfile}")
 
 # Combination cuts
 combination_cuts = (
@@ -114,7 +109,6 @@ combination_cuts = (
     "(AMAXCHILD('mu-' == ABSID, TRCHI2DOF) < 3) & "  # track
     "(AMINCHILD('mu-' == ABSID, PROBNNmu) > 0.4)"  # muon weights
 )
-print(f"outfile name: {outfile}")
 
 # Apply cuts
 comb = CombineParticles(
