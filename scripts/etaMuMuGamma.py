@@ -20,7 +20,7 @@ def parseArgs():
 
     parser = argparse.ArgumentParser(
         description="LHCb decay mode and data selection")
-    parser.add_argument("-d", "--data",
+    parser.add_argument("-m", "--mc",
                         action="store_true",
                         help="Run on MC / simulation")
 
@@ -40,8 +40,8 @@ def parseArgs():
 args = parseArgs()
 
 # Set flags
-IS_MC = not args.data  # True = MC, False = real data
-IS_MUMUGAMMA = args.mumugamma  # True = η→μμγ, False = η→μμ
+IS_MC = args.mc                  # True = simulation, False = real data
+IS_MUMUGAMMA = args.mumugamma    # True = η→μμγ, False = η→μμ
 
 # MC or real data.
 if IS_MC:
@@ -77,16 +77,10 @@ from StandardParticles import StdLooseMuons as muons
 from StandardParticles import StdLooseAllPhotons as photons
 from PhysSelPython.Wrappers import Selection, SelectionSequence
 
-# For logging date and time
-from datetime import datetime
-
-# Get current date and time, append .root file extension
-extension = "_" + str(datetime.now().strftime("%Y%m%d")) + ".root"
-
 # Decay mode config
 if IS_MUMUGAMMA is True:
     # Output file
-    outfile = 'eta2MuMuGamma' + ('_mc' if IS_MC else '_data') + extension
+    outfile = 'eta2MuMuGamma' + ('_mc' if IS_MC else '_data') + '.root'
     # Decay descriptor
     decay_descriptor = "eta -> mu+ mu- gamma"
     # Daughter cuts
@@ -99,7 +93,7 @@ if IS_MUMUGAMMA is True:
     required_selections = [muons, photons]
 # Repeat for eta -> mu+ mu-
 else:
-    outfile = 'eta2MuMu' + ('_mc' if IS_MC else '_data') + extension
+    outfile = 'eta2MuMu' + ('_mc' if IS_MC else '_data') + '.root'
     decay_descriptor = "eta -> mu+ mu-"
     daughter_cuts = {
         "mu+": "(PT > 500*MeV) & (P > 3*GeV)",
