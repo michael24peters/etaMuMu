@@ -504,7 +504,8 @@ class Ntuple:
         from math import log
         p = prt.p()  # |p|
         pz = prt.momentum().Pz()
-        return 0.5 * log((p + pz) / (p - pz))
+        try: return 0.5 * log((p + pz) / (p - pz))
+        except: return 20
 
     # ---------------------------------------------------------------------------
 
@@ -530,14 +531,15 @@ class Ntuple:
         # Momentum.
         self.fillMom(pre, mom)
 
-        # Immediate mother.
-        try: self.fill('%s_pid_mom' % pre, prt.mother().particleID().pid())
-        except: self.fill('%s_pid_mom' % pre, 0)
+        if pre == "mcprt":
+            # Immediate mother.
+            try: self.fill('%s_pid_mom' % pre, prt.mother().particleID().pid())
+            except: self.fill('%s_pid_mom' % pre, 0)
 
-        # Origin mother.
-        try: self.fill('%s_pid_og_mom' % pre, prt.originVertex().mother().
-                       particleID().pid())
-        except: self.fill('%s_pid_og_mom' % pre, 0)
+            # Origin mother.
+            try: self.fill('%s_pid_og_mom' % pre, prt.originVertex().mother().
+                        particleID().pid())
+            except: self.fill('%s_pid_og_mom' % pre, 0)
 
         # PID.
         self.fill('%s_q' % pre, float(prt.particleID().threeCharge()) / 3.0)
