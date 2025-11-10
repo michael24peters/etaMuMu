@@ -73,8 +73,8 @@ class Ntuple:
             vrsMcp = ['pid', 'q', 'px', 'py', 'pz', 'e', 'x', 'y', 'z']
             self.vrsInit('mcpvr', ['x', 'y', 'z'])
             self.vrsInit('mctag', ['idx_pvr'] + vrsMcp)
-            self.vrsInit('mcprt', ['idx_pvr', 'idx_mom', 'pid_mom',
-                                   'idx_og_mom', 'pid_og_mom', 'eta'] + vrsMcp)
+            self.vrsInit('mcprt', ['idx_pvr', 'pid_mom', 'pid_og_mom', 'eta'] +
+                         vrsMcp)
 
             # Generator-level variables
             vrsGen = ['pid', 'q', 'px', 'py', 'pz', 'e', 'x', 'y', 'z']
@@ -158,7 +158,7 @@ class Ntuple:
         key : float, creates identifier for particle from its momentum
         val : value to key-value pair, usually the particle information
         idx : index of the particle (?)
-        vrs : not in use (!!)
+        vrs : not in use
         """
 
         if key is None or val is None: self.tfile.Cd(''); self.ttree.Fill()
@@ -176,14 +176,17 @@ class Ntuple:
         """
 
         from math import sqrt
-        if cov is None: cov = vrt.covMatrix()
+        if cov is None: 
+            try: cov = vrt.covMatrix()
+            except: pass
         if pos is None: pos = vrt.position()
         self.fill('%s_x' % pre, pos.X())
         self.fill('%s_y' % pre, pos.Y())
         self.fill('%s_z' % pre, pos.Z())
-        self.fill('%s_dx' % pre, sqrt(abs(cov[0][0])))
-        self.fill('%s_dy' % pre, sqrt(abs(cov[1][1])))
-        self.fill('%s_dz' % pre, sqrt(abs(cov[2][2])))
+        if cov:
+            self.fill('%s_dx' % pre, sqrt(abs(cov[0][0])))
+            self.fill('%s_dy' % pre, sqrt(abs(cov[1][1])))
+            self.fill('%s_dz' % pre, sqrt(abs(cov[2][2])))
 
     # ---------------------------------------------------------------------------
 
@@ -377,8 +380,8 @@ class Ntuple:
                 self.fill('%s_y%i' % (pre, hit), v.y())
                 self.fill('%s_z%i' % (pre, hit), v.z())
                 # Phi type strip == -1, r type strip == 1.
-                self.fill('%s_id%i' % (pre, hit),
-                          i.lhcbID() * (-1 if s.isPhiType() else 1))
+                self.fill('%s_id%i' % (pre, hit), i.lhcbID() *
+                          (-1 if s.isPhiType() else 1))
                 # Fill spatial coordinate and strip width
                 if (s.isPhiType()):
                     self.fill('%s_t%i' % (pre, hit), d.globalPhi(s.strip(), 0))
@@ -496,19 +499,6 @@ class Ntuple:
 
     # ---------------------------------------------------------------------------
 
-    def pseudorapidity(self, prt):
-        """
-        Calculates the pseudorapidity of a particle (prt).
-        """
-
-        from math import log
-        p = prt.p()  # |p|
-        pz = prt.momentum().Pz()
-        try: return 0.5 * log((p + pz) / (p - pz))
-        except: return 20
-
-    # ---------------------------------------------------------------------------
-
     def fillMcp(self, prt, rec):
         """
         Fill MC-matched particle (prt) based on its reconstruction tag (rec),
@@ -606,7 +596,7 @@ class Ntuple:
             for dtr in dtrs:
                 # Check for LHCb acceptance range
                 accept = accept and (
-                    2.0 < self.pseudorapidity(dtr['dtr']) < 4.5)
+                    2.0 < dtr['dtr'].pseudoRapidity() < 4.5)
                 # Skip all etas which do not have muons with p >= 3 GeV
                 if dtr['pid'] in [-13, 13]:
                     accept = accept and dtr['dtr'].p() > 3000

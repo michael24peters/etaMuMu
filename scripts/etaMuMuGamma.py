@@ -20,7 +20,7 @@ def parseArgs():
 
     parser = argparse.ArgumentParser(
         description="LHCb decay mode and data selection")
-    parser.add_argument("-m", "--mc",
+    parser.add_argument("-d", "--data",
                         action="store_true",
                         help="Run on MC / simulation")
 
@@ -40,8 +40,8 @@ def parseArgs():
 args = parseArgs()
 
 # Set flags
-IS_MC = args.mc                  # True = simulation, False = real data
-IS_MUMUGAMMA = args.mumugamma    # True = η→μμγ, False = η→μμ
+IS_MC = not args.data  # True = MC, False = real data
+IS_MUMUGAMMA = args.mumugamma  # True = η→μμγ, False = η→μμ
 
 # MC or real data.
 if IS_MC:
@@ -49,25 +49,25 @@ if IS_MC:
     DaVinci().Lumi = False  # Processing of luminosity data.
     DaVinci().Simulation = True  # MC simulation data.
     # Found using "lb-dirac dirac-bookkeeping-production-information 00169948".
-#  DaVinci().DDDBtag = 'dddb-20210528-8' # for 00169948
-#  DaVinci().CondDBtag = 'sim-20201113-8-vc-md100-Sim10' # for 00169948
-    DaVinci().DDDBtag = 'dddb-20170721-3'  # for 00090844
-    DaVinci().CondDBtag = 'sim-20190128-vc-md100'  # for 00090844
+    DaVinci().DDDBtag = 'dddb-20210528-8' # for 00169948
+    DaVinci().CondDBtag = 'sim-20201113-8-vc-md100-Sim10' # for 00169948
+    # DaVinci().DDDBtag = 'dddb-20170721-3'  # for 00090844
+    # DaVinci().CondDBtag = 'sim-20190128-vc-md100'  # for 00090844
     IOHelper('ROOT').inputFiles([
-        'data/minbias/00090844_00000001_7.AllStreams.dst',  # minbias
-        'data/minbias/00090844_00000048_7.AllStreams.dst',
-        'data/minbias/00090844_00000055_7.AllStreams.dst',
-        'data/minbias/00090844_00000075_7.AllStreams.dst',
-        'data/minbias/00090844_00000079_7.AllStreams.dst',
-        'data/minbias/00090844_00000108_7.AllStreams.dst',
-        'data/minbias/00090844_00000186_7.AllStreams.dst',
-        'data/minbias/00090844_00000193_7.AllStreams.dst',
-        'data/minbias/00090844_00000207_7.AllStreams.dst',
-        'data/minbias/00090844_00000227_7.AllStreams.dst',
-        'data/minbias/00090844_00000054_7.AllStreams.dst',
-        'data/minbias/00090844_00000176_7.AllStreams.dst',
-        # 'data/norm/00169948_00000003_7.AllStreams.dst',  # eta->mumugamma
-        # 'data/norm/00169948_00000138_7.AllStreams.dst'
+        # 'data/minbias/00090844_00000001_7.AllStreams.dst',  # minbias
+        # 'data/minbias/00090844_00000048_7.AllStreams.dst',
+        # 'data/minbias/00090844_00000055_7.AllStreams.dst',
+        # 'data/minbias/00090844_00000075_7.AllStreams.dst',
+        # 'data/minbias/00090844_00000079_7.AllStreams.dst',
+        # 'data/minbias/00090844_00000108_7.AllStreams.dst',
+        # 'data/minbias/00090844_00000186_7.AllStreams.dst',
+        # 'data/minbias/00090844_00000193_7.AllStreams.dst',
+        # 'data/minbias/00090844_00000207_7.AllStreams.dst',
+        # 'data/minbias/00090844_00000227_7.AllStreams.dst',
+        # 'data/minbias/00090844_00000054_7.AllStreams.dst',
+        # 'data/minbias/00090844_00000176_7.AllStreams.dst',
+        'data/norm/00169948_00000003_7.AllStreams.dst',  # eta->mumugamma
+        'data/norm/00169948_00000138_7.AllStreams.dst'
     ],
         clear=True)
 
@@ -77,29 +77,30 @@ from StandardParticles import StdLooseMuons as muons
 from StandardParticles import StdLooseAllPhotons as photons
 from PhysSelPython.Wrappers import Selection, SelectionSequence
 
+# For logging date and time
+from datetime import datetime
+
+# Get current date and time, append .root file extension
+extension = "_" + str(datetime.now().strftime("%Y%m%d")) + ".root"
+
 # Decay mode config
-if IS_MUMUGAMMA is True:
-    # Output file
-    outfile = 'eta2MuMuGamma' + ('_mc' if IS_MC else '_data') + '.root'
-    # Decay descriptor
+daughter_cuts = {
+    "mu+": "(PT > 500*MeV) & (P > 3*GeV)",
+    "mu-": "(PT > 500*MeV) & (P > 3*GeV)"
+}
+required_selections = [muons]
+if IS_MUMUGAMMA:
+    # Append gamma cuts and selection
+    daughter_cuts["gamma"] = "(PT > 500*MeV) & (CL > 0.2)"
+    required_selections.append(photons)
+    outfile = 'eta2MuMuGamma' + ('_mc' if IS_MC else '') + extension
     decay_descriptor = "eta -> mu+ mu- gamma"
-    # Daughter cuts
-    daughter_cuts = {
-        "mu+": "(PT > 500*MeV) & (P > 3*GeV)",
-        "mu-": "(PT > 500*MeV) & (P > 3*GeV)",
-        # ?? PT > 300*MeV & P>1.5*GeV & PROBNNgamma > 0>
-        "gamma": "(PT > 500*MeV) & (CL > 0.2)"
-    }
-    required_selections = [muons, photons]
-# Repeat for eta -> mu+ mu-
+
 else:
-    outfile = 'eta2MuMu' + ('_mc' if IS_MC else '_data') + '.root'
+    outfile = 'eta2MuMu' + ('_mc' if IS_MC else '') + extension
     decay_descriptor = "eta -> mu+ mu-"
-    daughter_cuts = {
-        "mu+": "(PT > 500*MeV) & (P > 3*GeV)",
-        "mu-": "(PT > 500*MeV) & (P > 3*GeV)",
-    }
-    required_selections = [muons]
+
+print(f"outfile name: {outfile}")
 
 # Combination cuts
 combination_cuts = (
@@ -108,7 +109,6 @@ combination_cuts = (
     "(AMAXCHILD('mu-' == ABSID, TRCHI2DOF) < 3) & "  # track
     "(AMINCHILD('mu-' == ABSID, PROBNNmu) > 0.4)"  # muon weights
 )
-print(f"outfile name: {outfile}")
 
 # Apply cuts
 comb = CombineParticles(
@@ -180,7 +180,7 @@ docaTool = GaudiPython.gbl.LoKi.Particles.DOCA(0, 0, dstTool)
 
 # Initialize the tuple.
 from scripts.Ntuple import Ntuple
-ntuple = Ntuple(outfile, IS_MC, IS_MUMUGAMMA, tes, genTool, rftTool, pvrTool,
+ntuple = Ntuple(outfile, IS_MC, tes, genTool, rftTool, pvrTool,
                 None, dstTool, None, trkTool, l0Tool, hlt1Tool, hlt2Tool)
 
 # Run.

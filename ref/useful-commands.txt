@@ -6,7 +6,7 @@ lb-dirac dirac-dms-get-file LFN:/lhcb/MC/2018/ALLSTREAMS.DST/00169948/0000/00169
 lb-run DaVinci/v45r8 ipython filename.py
   Run ipython session for python file. Upon unexpected termination, you can access ipython in the terminal. 
   You could also do this for an empty file.
-lb-run DaVinci/v45r8 ipython -- scripts/etaMuMu.py -m -g
+lb-run DaVinci/v45r8 ipython -- scripts/etaMuMuGamma.py -g
   Run ipython session for analysis code for MC data (-m) eta -> mu mu gamma process (-g)
 lhcb-proxy-init
   Run proxy
