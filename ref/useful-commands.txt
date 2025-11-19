@@ -10,3 +10,11 @@ lb-run DaVinci/v45r8 ipython -- scripts/etaMuMuGamma.py -g
   Run ipython session for analysis code for MC data (-m) eta -> mu mu gamma process (-g)
 lhcb-proxy-init
   Run proxy
+
+USEFUL COMMANDS FOR sleepy
+
+If you want to use pyROOT, use the commands below.
+.bashrc should already be sourcing LbEnv, but including it here just in case.
+the command to run a file has been aliased to `run file.py`
+source /cvmfs/lhcb.cern.ch/lib/LbEnv
+lb-conda default python3 file.py
