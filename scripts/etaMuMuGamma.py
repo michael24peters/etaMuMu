@@ -67,7 +67,7 @@ if IS_MC:
         # 'data/minbias/00090844_00000054_7.AllStreams.dst',
         # 'data/minbias/00090844_00000176_7.AllStreams.dst',
         'data/norm/00169948_00000003_7.AllStreams.dst',  # eta->mumugamma
-        'data/norm/00169948_00000138_7.AllStreams.dst'
+        'data/norm/00169948_00000138_7.AllStreams.dst'  # 39112231, sim10b, magdown
     ],
         clear=True)
 

@@ -573,6 +573,7 @@ class Ntuple:
         # Prevent filling same particle more than once.
         if key in self.saved: return (pre, self.saved[key])
 
+
         # Daughters.
         if pre == 'gentag':
             dtrs = []
@@ -580,13 +581,11 @@ class Ntuple:
 
             # Loop over decay vertices and collect all daughters.
             for vrt in prt.endVertices():
-                # Loop over products of vertices (daughters)
                 for dtr in vrt.products():
                     if dtr.particleID().pid() in [-13, 13, 22]:
-                        dtrs.append({'pid': dtr.particleID().pid(),
-                                     'dtr': dtr})
-                # Sort daughters by PID, i.e. always in {-13, 13, 22} order.
-                dtrs = sorted(dtrs, key=lambda d: d['pid'])
+                        dtrs.append({'pid': dtr.particleID().pid(), 'dtr': dtr})
+            # Sort daughters by PID, i.e. always in {-13, 13, 22} order.
+            dtrs = sorted(dtrs, key=lambda d: d['pid'])
 
             # Skip all etas which do not decay exactly to mu+ mu- gamma
             pids = [d['pid'] for d in dtrs]
@@ -595,8 +594,7 @@ class Ntuple:
             # Kinematics checks.
             for dtr in dtrs:
                 # Check for LHCb acceptance range
-                accept = accept and (
-                    2.0 < dtr['dtr'].pseudoRapidity() < 4.5)
+                accept = accept and (2.0 < dtr['dtr'].pseudoRapidity() < 4.5)
                 # Skip all etas which do not have muons with p >= 3 GeV
                 if dtr['pid'] in [-13, 13]:
                     accept = accept and dtr['dtr'].p() > 3000
@@ -610,44 +608,64 @@ class Ntuple:
             idx = self.ntuple['%s_px' % pre].size()
             self.saved[key] = idx
 
-            # Recurse into daughters, collect info.
+            # Now fill daughters only if the whole decay is accepted
             for dtr in dtrs:
-                (dtrPre, dtrIdx) = self.fillGen(dtr['dtr'])
+                if not accept: print("ERROR: Should not reach here!")
+                dtr_prt = dtr['dtr']
+                dtr_pid = dtr['pid']
+                dtr_key = self.key(dtr_prt)
+                dtr_pre = 'genprt'
+                # Always fill all three daughters for each accepted eta decay
+                # Save daughter particle index
+                # # Prevent filling same daughter more than once
+                # if dtr_key in self.saved: continue
+                # Save daughter particle index
+                dtr_idx = self.ntuple['%s_px' % dtr_pre].size()
+                self.saved[dtr_key] = dtr_idx
+                # Momentum
+                self.fillMom(dtr_pre, dtr_prt.momentum())
+                # PID
+                self.fill('%s_q' % dtr_pre, float(dtr_prt.particleID().threeCharge()) / 3.0)
+                self.fill('%s_pid' % dtr_pre, dtr_pid)
+                # Vertex
+                self.fillVrt(dtr_pre, dtr_prt.originVertex())
+                # Primary vertex
+                pvr = dtr_prt.primaryVertex()
+                if pvr:
+                    pvr_key = self.key(pvr)
+                    if pvr_key not in self.saved:
+                        self.saved[pvr_key] = self.ntuple['mcpvr_x'].size()
+                        self.fill('mcpvr_x', pvr.position().X())
+                        self.fill('mcpvr_y', pvr.position().Y())
+                        self.fill('mcpvr_z', pvr.position().Z())
+                    self.fill('%s_idx_pvr' % dtr_pre, self.saved[pvr_key])
+                else:
+                    self.fill('%s_idx_pvr' % dtr_pre, -1)
                 # Fill index for mother particle
-                try: self.fill('%s_idx_mom' % pre, idx)
-                except: self.fill('%s_idx_mom' % pre, -1)
+                try:
+                    self.fill('%s_idx_mom' % dtr_pre, idx)
+                except:
+                    self.fill('%s_idx_mom' % dtr_pre, -1)
                 # Sanity check (should always be 221)
-                self.fill('%s_pid_mom' % pre, dtr['dtr'].mother().
-                          particleID().pid())
+                self.fill('%s_pid_mom' % dtr_pre, prt.particleID().pid())
 
-        # Save particle index.
-        # Note: redundant for gentag
+        # Save particle index and fill info for gentag
         idx = self.ntuple['%s_px' % pre].size()
         self.saved[key] = idx
-
-        # Momentum.
         self.fillMom(pre, mom)
-
-        # Pseudorapidity
-        self.fill('%s_eta' % pre, self.pseudorapidity(prt))
-
-        # PID.
+        # self.fill('%s_eta' % pre, prt.pseudoRapidity())
         self.fill('%s_q' % pre, float(prt.particleID().threeCharge()) / 3.0)
         self.fill('%s_pid' % pre, pid)
-
-        # Vertex.
         self.fillVrt(pre, prt.originVertex())
-
-        # Primary vertex.
         pvr = prt.primaryVertex()
         if pvr:
-            key = self.key(pvr)
-            if key not in self.saved:
-                self.saved[key] = self.ntuple['mcpvr_x'].size()
+            pvr_key = self.key(pvr)
+            if pvr_key not in self.saved:
+                self.saved[pvr_key] = self.ntuple['mcpvr_x'].size()
                 self.fill('mcpvr_x', pvr.position().X())
                 self.fill('mcpvr_y', pvr.position().Y())
                 self.fill('mcpvr_z', pvr.position().Z())
-            self.fill('%s_idx_pvr' % pre, self.saved[key])
-        else: self.fill('%s_idx_pvr' % pre, -1)
-
+            self.fill('%s_idx_pvr' % pre, self.saved[pvr_key])
+        else:
+            self.fill('%s_idx_pvr' % pre, -1)
         return (pre, idx)
