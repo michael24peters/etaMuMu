@@ -392,65 +392,52 @@ class Ntuple:
                 self.fill('%s_ym2' % pre, v.y())
                 self.fill('%s_zm2' % pre, v.z())
 
+        # # Find linked MC particle matches only for daughters
+        # if pre == 'prt':
+        #     try:
+        #         # Relate reconstructed particle to generator-level particle.
+        #         gen = None; wgt = 0; rels = self.genTool.relatedMCPs(prt)
+        #         # Select match with heighest weight
+        #         for rel in rels: gen = rel.to() if rel.weight() > wgt else gen
+        #         if gen: (genPre, genIdx) = self.fillMcp(gen)
+        #         else: genIdx = -1
+        #         self.fill('%s_idx_gen' % pre, genIdx)
+        #     except: pass
+
         # Find linked MC particle matches only for daughters using 
         # DaVinciSmartAssociator
         if pre == 'prt':
+            from LoKiMC.decorators import MCETA, MCPHI
+            from LoKiPhys.decorators import ETA, PHI
             try:
                 # Relate reconstructed particle to generator-level particle.
                 gen = None; wgt = 0; rels = self.genTool.relatedMCPs(prt)
                 # Select match with heighest weight
                 for rel in rels: gen = rel.to() if rel.weight() > wgt else gen
                 if gen: (genPre, genIdx) = self.fillMcp(gen)
+                # If DaVinciSmartAssociator fails (no match), use delta r
+                # matching
                 else:
-                    # If DaVinciSmartAssociator fails (no match), use delta r 
-                    # matching
-                    try:
-                        # store delta r minimum
-                        mindr = 99999999999; relp = None
-                        mcps = self.tes['MC/Particles']
-                        for mcp in mcps:
-                            if MCID(mcp) == ID(prt):  # Require same PID
-                                dphi = MCPHI(mcp) - PHI(prt)
-                                deta = MCETA(mcp) - ETA(prt)
-                                # Calculate delta r
-                                deltar = sqrt(dphi**2 + deta**2)  
-                                # Check if this is smaller than the current 
-                                # minimum delta r. If so, update mindr and 
-                                # relp. Add info to ntuple for this daughter's
-                                # linked MCParticle
-                                if deltar < mindr: mindr = deltar; relp = mcp
-                        if relp: (genPre, genIdx) = self.fillMcp(relp)
-                        else: genIdx = -1
+                    from math import sqrt
+                    # store delta r minimum
+                    mindr = 99999999999; relp = None
+                    mcps = self.tes['MC/Particles']
+                    for mcp in mcps:
+                        # Require same PID
+                        if mcp.particleID().pid() == prt.particleID().pid():
+                            dphi = MCPHI(mcp) - PHI(prt)
+                            deta = MCETA(mcp) - ETA(prt)
+                            # Calculate delta r
+                            deltar = sqrt(dphi**2 + deta**2)  
+                            # Check if this is smaller than the current 
+                            # minimum delta r. If so, update mindr and 
+                            # relp. Add info to ntuple for this daughter's
+                            # linked MCParticle
+                            if deltar < mindr: mindr = deltar; relp = mcp
+                    if relp: (genPre, genIdx) = self.fillMcp(relp)
+                    else: genIdx = -1
                 self.fill('%s_idx_gen' % pre, genIdx)
             except: pass
-        
-
-
-
-
-###This is using the DavinciSmartAssociator (the preferred method of truth matching)
-for pi in <TES LOC>: #this would be inside event loop, looping through candidates in TES location
-    for dp in pi.daughtersVector(): #this is (hopefully, might need to check syntax here) looping through the daughter particles associated with the parent
-        rels = mctool.relatedMCPs(dp) #this gets the MCParticles associated with the daughter and their weights
-        w = 0 #variable for storing the association weights
-        relp = None #variable for storing the associated MCParticle
-        for rel in rels: #looping through all relations to find best fit
-            if rel.weight() > w: w = rel.weight(); relp = rel.to() #replacing w if new weight is better, setting relp to the MCParticle
-        if relp: #checking if a related particle was actually found before trying to fill NTuple
-            #this is where you want to add info to your ntuple for the daughter based on PID of whichever daughter the loop has gotten to
-
-###Sometimes DaVinciSmartAssociator fails (no match found at all, Particle and MCParticle are not the same type, etc.), so the backup I used is delta r matching
-for pi in <TES LOC>: #same as above this would be inside event loop
-    for dp in pi.daughtersVector():
-        mindr = 99999999999 #variable that stores the minimum delta r from the loop (starts very large since we want the minimum delta r)
-        relp = None
-        for mcp in <MC TES LOC>: #loop through the MCParticle TES location (probably something like 'MC/Particles')
-            if MCID(mcp) == ID(dp): #requiring MCParticle and Particle to have same PID
-                dphi = MCPHI(mcp) - PHI(dp)
-                deta = MCETA(mcp) - ETA(dp)
-                deltar = sqrt(dphi**2 + deta**2) #delta r for this MCParticle and Particle
-                if deltar < mindr: mindr = deltar; relp = mcp #checking if this is smaller than the current minimum delta r and updating mindr and relp if that is the case
-        #this is where you add info to your ntuple for this daughter's linked MCParticle
 
         # IP.
         from ctypes import c_double
