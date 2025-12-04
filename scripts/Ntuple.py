@@ -49,7 +49,6 @@ class Ntuple:
         self.ttree = ROOT.TTree('tree', 'data')
         vrsVrt = ['x', 'y', 'z', 'dx', 'dy', 'dz']
         vrsMom = ['pid', 'px', 'py', 'pz', 'e']
-        vrsMom = ['idx_gen'] + vrsMom  # MC
         vrsPrt = ['iso', 'mu', 'loose_mu', 'tight_mu', 'pnn_mu', 'pnn_pi',
                   'pnn_k', 'pnn_p', 'pnn_ghost', 'prb_ghost', 'ip', 'ip_chi2',
                   'x0', 'y0', 'z0', 't0', 'p0', 'id0', 'z1', 'id1', 'id2',
@@ -66,21 +65,13 @@ class Ntuple:
         self.vrsInit('pvr', vrsVrt)
         self.vrsInit('tag', ['idx_pvr'] + vrsMom + vrsVrt + vrsTag + vrsTrg)
         self.vrsInit('tag', ['ve_iso0', 've_iso1', 'ln_iso0', 'ln_iso1'])
-        self.vrsInit('prt', ['idx_pvr', 'idx_mom'] + vrsMom + vrsPrt)
+        self.vrsInit('prt', ['idx_pvr', 'idx_gen', 'idx_mom'] + vrsMom + vrsPrt)
 
         # MC data.
         if IS_MC:
             vrsMcp = ['pid', 'q', 'px', 'py', 'pz', 'e', 'x', 'y', 'z']
             self.vrsInit('mcpvr', ['x', 'y', 'z'])
-            self.vrsInit('mctag', ['idx_pvr'] + vrsMcp)
-            self.vrsInit('mcprt', ['idx_pvr', 'pid_mom', 'pid_og_mom', 'eta'] +
-                         vrsMcp)
-
-            # Generator-level variables
-            vrsGen = ['pid', 'q', 'px', 'py', 'pz', 'e', 'x', 'y', 'z']
-            self.vrsInit('genpvr', ['x', 'y', 'z'])
-            self.vrsInit('gentag', ['idx_pvr'] + vrsGen)
-            self.vrsInit('genprt', ['idx_pvr', 'idx_mom', 'pid_mom'] + vrsGen)
+            self.vrsInit('mc', ['idx_pvr', 'idx_mom'] + vrsMcp)
 
         self.ntuple['pvr_n'] = array.array('d', [-1])
         self.ntuple['run_n'] = array.array('d', [-1])
@@ -401,18 +392,65 @@ class Ntuple:
                 self.fill('%s_ym2' % pre, v.y())
                 self.fill('%s_zm2' % pre, v.z())
 
-        # Find all linked MC particle matches.
-        try:
-            # Relate reconstructed particle to generator-level particle.
-            gen = None; wgt = 0; rels = self.genTool.relatedMCPs(prt)
-            # Select match with heighest weight
-            for rel in rels: gen = rel.to() if rel.weight() > wgt else gen
-            # Look at daughters of closest match gen-level particle. If they
-            # are muons or photons, save them.
-            if gen: (genPre, genIdx) = self.fillMcp(gen, pre)
-            else: genIdx = -1
-            self.fill('%s_idx_gen' % pre, genIdx)
-        except: pass
+        # Find linked MC particle matches only for daughters using 
+        # DaVinciSmartAssociator
+        if pre == 'prt':
+            try:
+                # Relate reconstructed particle to generator-level particle.
+                gen = None; wgt = 0; rels = self.genTool.relatedMCPs(prt)
+                # Select match with heighest weight
+                for rel in rels: gen = rel.to() if rel.weight() > wgt else gen
+                if gen: (genPre, genIdx) = self.fillMcp(gen)
+                else:
+                    # If DaVinciSmartAssociator fails (no match), use delta r 
+                    # matching
+                    try:
+                        # store delta r minimum
+                        mindr = 99999999999; relp = None
+                        mcps = self.tes['MC/Particles']
+                        for mcp in mcps:
+                            if MCID(mcp) == ID(prt):  # Require same PID
+                                dphi = MCPHI(mcp) - PHI(prt)
+                                deta = MCETA(mcp) - ETA(prt)
+                                # Calculate delta r
+                                deltar = sqrt(dphi**2 + deta**2)  
+                                # Check if this is smaller than the current 
+                                # minimum delta r. If so, update mindr and 
+                                # relp. Add info to ntuple for this daughter's
+                                # linked MCParticle
+                                if deltar < mindr: mindr = deltar; relp = mcp
+                        if relp: (genPre, genIdx) = self.fillMcp(relp)
+                        else: genIdx = -1
+                self.fill('%s_idx_gen' % pre, genIdx)
+            except: pass
+        
+
+
+
+
+###This is using the DavinciSmartAssociator (the preferred method of truth matching)
+for pi in <TES LOC>: #this would be inside event loop, looping through candidates in TES location
+    for dp in pi.daughtersVector(): #this is (hopefully, might need to check syntax here) looping through the daughter particles associated with the parent
+        rels = mctool.relatedMCPs(dp) #this gets the MCParticles associated with the daughter and their weights
+        w = 0 #variable for storing the association weights
+        relp = None #variable for storing the associated MCParticle
+        for rel in rels: #looping through all relations to find best fit
+            if rel.weight() > w: w = rel.weight(); relp = rel.to() #replacing w if new weight is better, setting relp to the MCParticle
+        if relp: #checking if a related particle was actually found before trying to fill NTuple
+            #this is where you want to add info to your ntuple for the daughter based on PID of whichever daughter the loop has gotten to
+
+###Sometimes DaVinciSmartAssociator fails (no match found at all, Particle and MCParticle are not the same type, etc.), so the backup I used is delta r matching
+for pi in <TES LOC>: #same as above this would be inside event loop
+    for dp in pi.daughtersVector():
+        mindr = 99999999999 #variable that stores the minimum delta r from the loop (starts very large since we want the minimum delta r)
+        relp = None
+        for mcp in <MC TES LOC>: #loop through the MCParticle TES location (probably something like 'MC/Particles')
+            if MCID(mcp) == ID(dp): #requiring MCParticle and Particle to have same PID
+                dphi = MCPHI(mcp) - PHI(dp)
+                deta = MCETA(mcp) - ETA(dp)
+                deltar = sqrt(dphi**2 + deta**2) #delta r for this MCParticle and Particle
+                if deltar < mindr: mindr = deltar; relp = mcp #checking if this is smaller than the current minimum delta r and updating mindr and relp if that is the case
+        #this is where you add info to your ntuple for this daughter's linked MCParticle
 
         # IP.
         from ctypes import c_double
@@ -499,45 +537,83 @@ class Ntuple:
 
     # ---------------------------------------------------------------------------
 
-    def fillMcp(self, prt, rec):
+    def fillMcp(self, prt):
         """
-        Fill MC-matched particle (prt) based on its reconstruction tag (rec),
-        i.e. reconstruction -> MC generator-level mapping.
+        Fill MC truth entries:
+        - If prt is an eta(221): only fill the eta and exactly its three
+          daughters [-13, 13, 22]. Set mc_idx_mom of daughters to the eta
+          index. mc_idx_rec = -1 for the eta.
+        - If prt is matched to a rec particle: fill only if it hasn't been filled
+          already. If it has been filled, point mc_idx_rec to the rec particle
+          index but do not fill again.
+        - For other gen-level particles: do not fill.
         """
-
         pid = prt.particleID().pid()
         mom = prt.momentum()
         pos = None
         key = self.key(prt)
-
-        pre = 'mctag' if rec == 'tag' else 'mcprt'
-        # Prevent filling same particle more than once.
+        pre = 'mc'
         if key in self.saved: return (pre, self.saved[key])
 
-        # Save current index of TTree array, get next row index of TTree.
+        # If eta, fill eta and its daughters
+        if pid == 221:
+            dtrs = []
+            for vrt in prt.endVertices():
+                for dtr in vrt.products():
+                    if dtr.particleID().pid() in [-13, 13, 22]:
+                        dtrs.append(dtr)
+            dtrs = sorted(dtrs, key=lambda d: d[0].particleID().pid())
+            pids = [d[0].particleID().pid() for d in dtrs] + [221]
+            if pids != [-13, 13, 22, 221]:
+                return (None, None)
+            decay = [prt] + dtrs
+
+            # Fill.
+            idx_eta = -1
+            for p in decay:
+                pid = p.particleID().pid()
+                mom = p.momentum()
+                key = self.key(p)
+                
+                idx = self.ntuple['%s_px' % pre].size()
+                self.saved[key] = idx
+
+                if pid == 221:
+                    idx_eta = idx
+                    self.fill('%s_idx_mom' % pre, -1)
+                else:
+                    self.fill('%s_idx_mom' % pre, idx_eta)
+                # Momentum
+                self.fillMom(pre, mom)
+                self.fill('%s_q' % pre, float(p.particleID().threeCharge()) / 3.0)
+                self.fill('%s_pid' % pre, pid)
+                # Vertex.
+                self.fillVrt(pre, p.originVertex())
+                # Primary vertex.
+                pvr = p.primaryVertex()
+                if pvr:
+                    key = self.key(pvr)
+                    if key not in self.saved:
+                        self.saved[key] = self.ntuple['mcpvr_x'].size()
+                        self.fill('mcpvr_x', pvr.position().X())
+                        self.fill('mcpvr_y', pvr.position().Y())
+                        self.fill('mcpvr_z', pvr.position().Z())
+                    self.fill('%s_idx_pvr' % pre, self.saved[key])
+                else: self.fill('%s_idx_pvr' % pre, -1)
+            return (pre, idx_eta) # Return just the eta.
+        
+        # If not a potential eta candidate, just fill normally.
+        # Save particle index.
         idx = self.ntuple['%s_px' % pre].size()
         self.saved[key] = idx
 
         # Momentum.
         self.fillMom(pre, mom)
-
-        if pre == "mcprt":
-            # Immediate mother.
-            try: self.fill('%s_pid_mom' % pre, prt.mother().particleID().pid())
-            except: self.fill('%s_pid_mom' % pre, 0)
-
-            # Origin mother.
-            try: self.fill('%s_pid_og_mom' % pre, prt.originVertex().mother().
-                        particleID().pid())
-            except: self.fill('%s_pid_og_mom' % pre, 0)
-
         # PID.
         self.fill('%s_q' % pre, float(prt.particleID().threeCharge()) / 3.0)
         self.fill('%s_pid' % pre, pid)
-
         # Vertex.
         self.fillVrt(pre, prt.originVertex())
-
         # Primary vertex.
         pvr = prt.primaryVertex()
         if pvr:
@@ -549,6 +625,9 @@ class Ntuple:
                 self.fill('mcpvr_z', pvr.position().Z())
             self.fill('%s_idx_pvr' % pre, self.saved[key])
         else: self.fill('%s_idx_pvr' % pre, -1)
+
+        # Mother.
+        self.fill('%s_idx_mom' % pre, -1)
 
         return (pre, idx)
 

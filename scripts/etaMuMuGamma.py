@@ -49,15 +49,15 @@ if IS_MC:
     DaVinci().Lumi = False  # Processing of luminosity data.
     DaVinci().Simulation = True  # MC simulation data.
     # Found using "lb-dirac dirac-bookkeeping-production-information 00169948".
-    DaVinci().DDDBtag = 'dddb-20210528-8' # for 00169948
-    DaVinci().CondDBtag = 'sim-20201113-8-vc-md100-Sim10' # for 00169948
-    # DaVinci().DDDBtag = 'dddb-20170721-3'  # for 00090844
-    # DaVinci().CondDBtag = 'sim-20190128-vc-md100'  # for 00090844
+    # DaVinci().DDDBtag = 'dddb-20210528-8' # for 00169948
+    # DaVinci().CondDBtag = 'sim-20201113-8-vc-md100-Sim10' # for 00169948
+    DaVinci().DDDBtag = 'dddb-20170721-3'  # for 00090844
+    DaVinci().CondDBtag = 'sim-20190128-vc-md100'  # for 00090844
     IOHelper('ROOT').inputFiles([
-        # 'data/minbias/00090844_00000001_7.AllStreams.dst',  # minbias
-        # 'data/minbias/00090844_00000048_7.AllStreams.dst',
-        # 'data/minbias/00090844_00000055_7.AllStreams.dst',
-        # 'data/minbias/00090844_00000075_7.AllStreams.dst',
+        'data/minbias/00090844_00000001_7.AllStreams.dst',  # minbias
+        'data/minbias/00090844_00000048_7.AllStreams.dst',
+        'data/minbias/00090844_00000055_7.AllStreams.dst',
+        'data/minbias/00090844_00000075_7.AllStreams.dst',
         # 'data/minbias/00090844_00000079_7.AllStreams.dst',
         # 'data/minbias/00090844_00000108_7.AllStreams.dst',
         # 'data/minbias/00090844_00000186_7.AllStreams.dst',
@@ -66,8 +66,8 @@ if IS_MC:
         # 'data/minbias/00090844_00000227_7.AllStreams.dst',
         # 'data/minbias/00090844_00000054_7.AllStreams.dst',
         # 'data/minbias/00090844_00000176_7.AllStreams.dst',
-        'data/norm/00169948_00000003_7.AllStreams.dst',  # eta->mumugamma
-        'data/norm/00169948_00000138_7.AllStreams.dst'  # 39112231, sim10b, magdown
+        # 'data/norm/00169948_00000003_7.AllStreams.dst',  # eta->mumugamma
+        # 'data/norm/00169948_00000138_7.AllStreams.dst'  # 39112231, sim10b, magdown
     ],
         clear=True)
 
@@ -213,6 +213,18 @@ while evtnum < evtmax:
 
     # Fill candidates.
     fill = False
+
+    # Fill MC.
+    if IS_MC:
+        mcps = tes['MC/Particles']
+        try: len(mcps); run = True
+        except: run = False
+        if run:
+            for mcp in mcps:
+                if abs(mcp.particleID().pid()) == 221:
+                    ntuple.fillMcp(mcp)
+                    fill = True
+
     pvrs = tes['Rec/Vertex/Primary']
     trks = tes['Rec/Track/Best']
     prts = tes[seq.outputLocation()]
@@ -224,19 +236,6 @@ while evtnum < evtmax:
             sigs += [prt]
             ntuple.fillPrt(prt, pvrs, trks)
             fill = True
-
-    # Fill MC.
-    if IS_MC:
-        mcps = tes['MC/Particles']
-        try: len(mcps); run = True
-        except: run = False
-        if run:
-            # Loop over MC truth particles
-            for mcp in mcps:
-                # Look at every eta, fill eta -> mu+ mu- gamma decay instances
-                if abs(mcp.particleID().pid()) == 221:
-                    ntuple.fillGen(mcp)
-                    fill = True
 
     # Fill ntuple if there is information for this event
     if fill: ntuple.fill()  # Debug
