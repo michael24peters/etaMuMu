@@ -65,7 +65,7 @@ class Ntuple:
         self.vrsInit('pvr', vrsVrt)
         self.vrsInit('tag', ['idx_pvr'] + vrsMom + vrsVrt + vrsTag + vrsTrg)
         self.vrsInit('tag', ['ve_iso0', 've_iso1', 'ln_iso0', 'ln_iso1'])
-        self.vrsInit('prt', ['idx_pvr', 'idx_gen', 'idx_mom'] + vrsMom + vrsPrt)
+        self.vrsInit('prt', ['idx_pvr', 'idx_gen', 'deltar', 'idx_mom'] + vrsMom + vrsPrt)
 
         # MC data.
         if IS_MC:
@@ -420,7 +420,7 @@ class Ntuple:
                 else:
                     from math import sqrt
                     # store delta r minimum
-                    mindr = 99999999999; relp = None
+                    mindr = float('inf'); relp = None
                     mcps = self.tes['MC/Particles']
                     for mcp in mcps:
                         # Require same PID
@@ -434,10 +434,16 @@ class Ntuple:
                             # relp. Add info to ntuple for this daughter's
                             # linked MCParticle
                             if deltar < mindr: mindr = deltar; relp = mcp
-                    if relp: (genPre, genIdx) = self.fillMcp(relp)
-                    else: genIdx = -1
+                    if relp: 
+                        (genPre, genIdx) = self.fillMcp(relp)
+                        self.fill('%s_deltar' % pre, mindr)
+                    else: 
+                        genIdx = -1
+                        self.fill('%s_deltar' % pre, -1)
                 self.fill('%s_idx_gen' % pre, genIdx)
             except: pass
+            # TODO: save value of deltaR to ntuple so we can make offline cuts 
+            # on it later
 
         # IP.
         from ctypes import c_double

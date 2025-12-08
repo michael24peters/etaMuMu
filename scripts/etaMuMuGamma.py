@@ -8,43 +8,68 @@
 from Configurables import DaVinci
 from GaudiConf import IOHelper
 
+# Analyisis Production configuration.
+try: from ProdConf import ProdConf
+except ImportError: pass
+from pathlib import Path
 import argparse
+import sys
+import importlib.machinery
+import importlib.util
 
 # =============================================================================
 
-
-def parseArgs():
+def parseArgs() -> bool:
     """
-    Parser method for command line arguments.
+    Parser method required for GaudiPython to work with AnalysisProductions
+
+    Argument parser method required for GaudiPython to work with
+    AnalysisProductions because the option files get unsorted.
     """
 
     parser = argparse.ArgumentParser(
-        description="LHCb decay mode and data selection")
-    parser.add_argument("-d", "--data",
-                        action="store_true",
-                        help="Run on MC / simulation")
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        description=__doc__,
+    )
+    parser.add_argument(
+        "options_paths",
+        nargs="+",
+        type=Path,
+        help="Additional options files to load before starting Gaudi Python",
+    )
+    args = parser.parse_args()
 
-    parser.add_argument("-g", "--mumugamma",
-                        action="store_true",
-                        help="Analyze η→μμγ (default: η→μμ)")
+    opt = None
+    for options_path in args.options_paths:
+        print("Adding options file:", options_path)
+        loader = importlib.machinery.SourceFileLoader(
+            "option", str(options_path.resolve()))
+        spec = importlib.util.spec_from_loader(loader.name, loader)
+        mod = importlib.util.module_from_spec(spec)
+        loader.exec_module(mod)
+        try: opt = mod.backwards
+        except AttributeError: pass
 
-    parser.add_argument("--evtmax", type=int, default=-1,
-                        help="Max events to process (-1 = all)")
+    if opt is None:
+        opt = 'False'
+        print("Warning: No options file set BDTTagger.Backwards." +
+              "Defaulting to 'False'.")
+    else: print(f"Running with BDTTagger.Backwards == '{opt}'.")
 
-    return parser.parse_args()
+    if opt == 'True': return True
+    elif opt == 'False': return False
+    else: raise ValueError("Invalid input, must be 'True' or 'False'")
 
 
 # =============================================================================
 
-# Parse command line arguments
-args = parseArgs()
-
 # Set flags
-IS_MC = not args.data  # True = MC, False = real data
-IS_MUMUGAMMA = args.mumugamma  # True = η→μμγ, False = η→μμ
+IS_MC = True  # True = MC, False = real data
+IS_SAMPLE = True # True = sample data, False = analysis production
+IS_MUMUGAMMA = True  # True = η→μμγ, False = η→μμ
 
 # MC or real data.
-if IS_MC:
+if IS_MC and IS_SAMPLE:
     DaVinci().DataType = '2018'
     DaVinci().Lumi = False  # Processing of luminosity data.
     DaVinci().Simulation = True  # MC simulation data.
@@ -70,18 +95,23 @@ if IS_MC:
         # 'data/norm/00169948_00000138_7.AllStreams.dst'  # 39112231, sim10b, magdown
     ],
         clear=True)
+    
+    # For logging date and time
+    from datetime import datetime
+
+    # Get current date and time, append .root file extension
+    extension = "_" + str(datetime.now().strftime("%Y%m%d")) + ".root"
+elif IS_MC and not IS_SAMPLE:
+    DaVinci().Lumi = False  # Processing of luminosity data.
+    # Output file
+    backwards = parseArgs()
+    outfile = f"{ProdConf().OutputFilePrefix}.{ProdConf().OutputFileTypes[0]}"
 
 # Reconstruction.
 from Configurables import CombineParticles
 from StandardParticles import StdLooseMuons as muons
 from StandardParticles import StdLooseAllPhotons as photons
 from PhysSelPython.Wrappers import Selection, SelectionSequence
-
-# For logging date and time
-from datetime import datetime
-
-# Get current date and time, append .root file extension
-extension = "_" + str(datetime.now().strftime("%Y%m%d")) + ".root"
 
 # Decay mode config
 daughter_cuts = {
@@ -93,14 +123,13 @@ if IS_MUMUGAMMA:
     # Append gamma cuts and selection
     daughter_cuts["gamma"] = "(PT > 500*MeV) & (CL > 0.2)"
     required_selections.append(photons)
-    outfile = 'eta2MuMuGamma' + ('_mc' if IS_MC else '') + extension
+    if IS_SAMPLE: outfile = 'eta2MuMuGamma' + ('_mc' if IS_MC else '') + extension
     decay_descriptor = "eta -> mu+ mu- gamma"
-
 else:
-    outfile = 'eta2MuMu' + ('_mc' if IS_MC else '') + extension
+    if IS_SAMPLE: outfile = 'eta2MuMu' + ('_mc' if IS_MC else '') + extension
     decay_descriptor = "eta -> mu+ mu-"
 
-print(f"outfile name: {outfile}")
+print(f"outfile: {outfile}")  # debug
 
 # Combination cuts
 combination_cuts = (
@@ -179,12 +208,20 @@ physTool = gaudi.toolsvc().create(
 docaTool = GaudiPython.gbl.LoKi.Particles.DOCA(0, 0, dstTool)
 
 # Initialize the tuple.
-from scripts.Ntuple import Ntuple
+# local sample
+try: from scripts.Ntuple import Ntuple
+# analysis production
+except: from Ntuple import Ntuple
 ntuple = Ntuple(outfile, IS_MC, tes, genTool, rftTool, pvrTool,
                 None, dstTool, None, trkTool, l0Tool, hlt1Tool, hlt2Tool)
 
 # Run.
-evtmax = args.evtmax if args.evtmax > 0 else float("inf")
+# local sample
+try: evtmax = args.evtmax if args.evtmax > 0 else float("inf")
+except: 
+    # analysis production
+    try: evtmax = int(sys.argv[1])
+    except: evtmax = float("inf")
 evtnum = 0
 
 while evtnum < evtmax:
