@@ -407,8 +407,6 @@ class Ntuple:
         # Find linked MC particle matches only for daughters using 
         # DaVinciSmartAssociator
         if pre == 'prt':
-            from LoKiMC.decorators import MCETA, MCPHI
-            from LoKiPhys.decorators import ETA, PHI
             try:
                 # Relate reconstructed particle to generator-level particle.
                 gen = None; wgt = 0; rels = self.genTool.relatedMCPs(prt)
@@ -423,17 +421,15 @@ class Ntuple:
                     mindr = float('inf'); relp = None
                     mcps = self.tes['MC/Particles']
                     for mcp in mcps:
-                        # Require same PID
-                        if mcp.particleID().pid() == prt.particleID().pid():
-                            dphi = MCPHI(mcp) - PHI(prt)
-                            deta = MCETA(mcp) - ETA(prt)
-                            # Calculate delta r
-                            deltar = sqrt(dphi**2 + deta**2)  
-                            # Check if this is smaller than the current 
-                            # minimum delta r. If so, update mindr and 
-                            # relp. Add info to ntuple for this daughter's
-                            # linked MCParticle
-                            if deltar < mindr: mindr = deltar; relp = mcp
+                        dphi = mcp.momentum().phi() - prt.momentum().phi()
+                        deta = mcp.momentum().eta() - prt.momentum().eta()
+                        # Calculate delta r
+                        deltar = sqrt(dphi**2 + deta**2)  
+                        # Check if this is smaller than the current 
+                        # minimum delta r. If so, update mindr and 
+                        # relp. Add info to ntuple for this daughter's
+                        # linked MCParticle
+                        if deltar < mindr: mindr = deltar; relp = mcp
                     if relp: 
                         (genPre, genIdx) = self.fillMcp(relp)
                         self.fill('%s_deltar' % pre, mindr)
@@ -556,8 +552,8 @@ class Ntuple:
                     if dtr.particleID().pid() in [-13, 13, 22]:
                         dtrs.append(dtr)
             dtrs = sorted(dtrs, key=lambda d: d[0].particleID().pid())
-            pids = [d[0].particleID().pid() for d in dtrs] + [221]
-            if pids != [-13, 13, 22, 221]:
+            pids = [d[0].particleID().pid() for d in dtrs]
+            if pids != [-13, 13, 22]:
                 return (None, None)
             decay = [prt] + dtrs
 
