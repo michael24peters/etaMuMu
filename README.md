@@ -1,9 +1,9 @@
 # README
 
-To run, make sure you are in the base directory (`etaMuMu/`) and type: `lb-run DaVinci/v45r8 ipython -- scripts/etaMuMu.py -g`, where `-g` is the eta -> mu+ mu- gamma decay mode option. This is the only non-default command line argument that currently works.
+To run, make sure you are in the base directory (`etaMuMu/`) and type: `lb-run DaVinci/v45r8 ipython scripts/etaMuMu.py`. There are three boolean values in `etaMuMu.py` that allow you to set the data type (MC vs real), data source (local vs analysis production), and decay type (eta -> mu+ mu- (gamma)).
 
-A `.root` file will be generated in the base directory, which is broken into the `tag`, `prt`, `mctag`, `mcprt`, `,gentag`, and `genprt`. `tag` and `prt` are reconstruction-level events; `mc` contains MC-matched events (reconstructed -> generator-level mapping, e.g. "after applying my selection criteria, I think this is an eta which I will put in `tag`, now I'm going to check if it was *actually* an eta particle by finding its closest generator-level match and comparing, the result of which I will put in `mctag`); and `gen` contains all generator-level events which were eta -> mu+ mu- (gamma) and passed fiducial cuts (LHCb pseudorapidity range, p, pT).
+A `.root` file will be generated in the `ntuples/` directory, which is broken into the `tag`, `prt`, and `mc`. `tag` and `prt` are reconstruction-level events; `mc` contains generator-level events. There are a series of indexes which match reco-level events to gen-level events for the purposes of background analysis.
 
-`plots/` contains scripts to plot the leaves within the ntuple, e.g. `mcprt_pid`. These plots should be stored in `figs/`.
+`plots/` contains scripts to plot values int the ntuple, e.g. `mc_pid`. These plots should be stored in `figs/`.
 
-`scripts/` contains the scripts used to perform this analysis (fill the ntuple and other accessory operations).
+`src/` contains the scripts used to perform this analysis (fill the ntuple and other accessory operations).
