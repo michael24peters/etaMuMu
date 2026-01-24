@@ -146,7 +146,7 @@ class Ntuple:
     def is_event_empty(self):
         """
         Check if there is any data in the current event for the ntuple to
-        fill.
+        fill. Return True if empty, False otherwise.
         """
         for key, val in self.ntuple.items():
             if hasattr(val, 'size') and val.size() > 0: return False

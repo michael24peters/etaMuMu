@@ -65,7 +65,7 @@ def parseArgs() -> bool:
 
 # Set flags
 IS_MC = True  # True = MC, False = real data
-IS_SAMPLE = True # True = sample data, False = analysis production
+IS_SAMPLE = False # True = sample data, False = analysis production
 IS_MUMUGAMMA = True  # True = η→μμγ, False = η→μμ
 
 # MC or real data.
@@ -79,7 +79,7 @@ if IS_MC and IS_SAMPLE:
     DaVinci().DDDBtag = 'dddb-20170721-3'  # for 00090844
     DaVinci().CondDBtag = 'sim-20190128-vc-md100'  # for 00090844
     IOHelper('ROOT').inputFiles([
-        # 'data/minbias/00090844_00000001_7.AllStreams.dst',  # minbias
+        'data/minbias/00090844_00000001_7.AllStreams.dst',  # minbias
         # 'data/minbias/00090844_00000048_7.AllStreams.dst',
         # 'data/minbias/00090844_00000055_7.AllStreams.dst',
         # 'data/minbias/00090844_00000075_7.AllStreams.dst',
@@ -91,7 +91,7 @@ if IS_MC and IS_SAMPLE:
         # 'data/minbias/00090844_00000227_7.AllStreams.dst',
         # 'data/minbias/00090844_00000054_7.AllStreams.dst',
         # 'data/minbias/00090844_00000176_7.AllStreams.dst',
-        'data/norm/00169948_00000003_7.AllStreams.dst',  # eta->mumugamma
+        # 'data/norm/00169948_00000003_7.AllStreams.dst',  # eta->mumugamma
         # 'data/norm/00169948_00000138_7.AllStreams.dst'  # 39112231, sim10b, magdown
     ],
         clear=True)
@@ -123,13 +123,13 @@ if IS_MUMUGAMMA:
     # Append gamma cuts and selection
     daughter_cuts["gamma"] = "(PT > 500*MeV) & (CL > 0.2)"
     required_selections.append(photons)
-    if IS_SAMPLE: outfile = 'eta2MuMuGamma' + ('_mc' if IS_MC else '') + extension
+    if IS_SAMPLE: outfile = 'ntuples/eta2MuMuGamma' + ('_mc' if IS_MC else '') + extension
     decay_descriptor = "eta -> mu+ mu- gamma"
 else:
-    if IS_SAMPLE: outfile = 'eta2MuMu' + ('_mc' if IS_MC else '') + extension
+    if IS_SAMPLE: outfile = 'ntuples/eta2MuMu' + ('_mc' if IS_MC else '') + extension
     decay_descriptor = "eta -> mu+ mu-"
 
-print(f"outfile: {outfile}")  # debug
+print(f"Writing output to {outfile}")  # debug
 
 # Combination cuts
 combination_cuts = (
@@ -137,7 +137,7 @@ combination_cuts = (
     "(AMAXDOCA('') < 0.4*mm) & "  # doca btwn children
     # possibly change TRCHI2DOF to 2.5
     "(AMAXCHILD('mu-' == ABSID, TRCHI2DOF) < 3) & "  # track
-    "(AMINCHILD('mu-' == ABSID, PROBNNmu) > 0.4)"  # muon weights
+    "(AMINCHILD('mu-' == ABSID, PROBNNmu) > 0.95)"  # muon weights
 )
 
 # Apply cuts
