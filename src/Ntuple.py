@@ -143,6 +143,17 @@ class Ntuple:
 
     # ---------------------------------------------------------------------------
 
+    def is_event_empty(self):
+        """
+        Check if there is any data in the current event for the ntuple to
+        fill.
+        """
+        for key, val in self.ntuple.items():
+            if hasattr(val, 'size') and val.size() > 0: return False
+        return True
+
+    # ---------------------------------------------------------------------------
+
     def fill(self, key=None, val=None, idx=None, vrs=None):
         """
         Fill the ntuple for either an event or an object.
@@ -152,7 +163,11 @@ class Ntuple:
         vrs : not in use
         """
 
-        if key is None or val is None: self.tfile.Cd(''); self.ttree.Fill()
+        if key is None or val is None: 
+            # Do not fill empty events
+            if self.is_event_empty(): return
+            self.tfile.Cd('')
+            self.ttree.Fill()
         elif key in self.ntuple:
             if idx is None: self.ntuple[key].push_back(val)
             elif idx < len(self.ntuple[key]): self.ntuple[key][idx] = val
