@@ -137,7 +137,7 @@ combination_cuts = (
     "(AMAXDOCA('') < 0.4*mm) & "  # doca btwn children
     # possibly change TRCHI2DOF to 2.5
     "(AMAXCHILD('mu-' == ABSID, TRCHI2DOF) < 3) & "  # track
-    "(AMINCHILD('mu-' == ABSID, PROBNNmu) > 0.95)"  # muon weights
+    "(AMINCHILD('mu-' == ABSID, PROBNNmu) > 0.4)"  # muon weights
 )
 
 # Apply cuts
