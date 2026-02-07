@@ -18,3 +18,5 @@ If you want to use pyROOT, use the commands below.
 the command to run a file has been aliased to `run file.py`
 source /cvmfs/lhcb.cern.ch/lib/LbEnv
 lb-conda default python3 file.py
+
+If you want to run your analysis code, simply type `ana` into the command line.

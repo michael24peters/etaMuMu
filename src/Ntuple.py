@@ -27,11 +27,12 @@ class Ntuple:
     Class to store an ntuple.
     """
 
-    def __init__(self, name, IS_MC, tes, genTool, rftTool, pvrTool, velTool,
+    def __init__(self, name, IS_MC, IS_MUMUGAMMA, tes, genTool, rftTool, pvrTool, velTool,
                  dstTool, detTool, trkTool, l0Tool, hlt1Tool, hlt2Tool):
         from collections import OrderedDict
         import ROOT
         import array
+        self.is_mumugamma = IS_MUMUGAMMA
         self.tes = tes
         self.genTool = genTool
         self.rftTool = rftTool
@@ -564,11 +565,19 @@ class Ntuple:
             dtrs = []
             for vrt in prt.endVertices():
                 for dtr in vrt.products():
-                    if dtr.particleID().pid() in [-13, 13, 22]:
+                    # eta -> mu+ mu- gamma
+                    if self.is_mumugamma and dtr.particleID().pid() in [-13, 13, 22]:
+                        dtrs.append(dtr)
+                    # eta -> mu+ mu-
+                    elif not self.is_mumugamma and dtr.particleID().pid() in [-13, 13]:
                         dtrs.append(dtr)
             dtrs = sorted(dtrs, key=lambda d: d[0].particleID().pid())
             pids = [d[0].particleID().pid() for d in dtrs]
-            if pids != [-13, 13, 22]:
+            # eta -> mu+ mu- gamma
+            if self.is_mumugamma and pids != [-13, 13, 22]:
+                return (None, None)
+            # eta -> mu+ mu-
+            if not self.is_mumugamma and pids != [-13, 13]:
                 return (None, None)
             decay = [prt] + dtrs
 
@@ -665,14 +674,18 @@ class Ntuple:
             # Loop over decay vertices and collect all daughters.
             for vrt in prt.endVertices():
                 for dtr in vrt.products():
-                    if dtr.particleID().pid() in [-13, 13, 22]:
+                    # eta -> mu+ mu- gamma
+                    if self.is_mumugamma and dtr.particleID().pid() in [-13, 13, 22]:
                         dtrs.append({'pid': dtr.particleID().pid(), 'dtr': dtr})
-            # Sort daughters by PID, i.e. always in {-13, 13, 22} order.
+                    # eta -> mu+ mu-
+                    elif not self.is_mumugamma and dtr.particleID().pid() in [-13, 13]:
+                        dtrs.append({'pid': dtr.particleID().pid(), 'dtr': dtr})
+            # Sort daughters by PID, i.e. always in {-13, 13(, 22)} order.
             dtrs = sorted(dtrs, key=lambda d: d['pid'])
 
-            # Skip all etas which do not decay exactly to mu+ mu- gamma
+            # Skip all etas which do not decay exactly to mu+ mu- (gamma)
             pids = [d['pid'] for d in dtrs]
-            accept = accept and pids == [-13, 13, 22]
+            accept = accept and pids == [-13, 13, 22] if self.is_mumugamma else pids == [-13, 13]
 
             # Kinematics checks.
             for dtr in dtrs:

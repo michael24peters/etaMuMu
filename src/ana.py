@@ -65,8 +65,8 @@ def parseArgs() -> bool:
 
 # Set flags
 IS_MC = True  # True = MC, False = real data
-IS_SAMPLE = False # True = sample data, False = analysis production
-IS_MUMUGAMMA = True  # True = η→μμγ, False = η→μμ
+IS_SAMPLE = True # True = sample data, False = analysis production
+IS_MUMUGAMMA = False  # True = η→μμγ, False = η→μμ
 
 # MC or real data.
 if IS_MC and IS_SAMPLE:
@@ -80,17 +80,17 @@ if IS_MC and IS_SAMPLE:
     DaVinci().CondDBtag = 'sim-20190128-vc-md100'  # for 00090844
     IOHelper('ROOT').inputFiles([
         'data/minbias/00090844_00000001_7.AllStreams.dst',  # minbias
-        # 'data/minbias/00090844_00000048_7.AllStreams.dst',
-        # 'data/minbias/00090844_00000055_7.AllStreams.dst',
-        # 'data/minbias/00090844_00000075_7.AllStreams.dst',
-        # 'data/minbias/00090844_00000079_7.AllStreams.dst',
-        # 'data/minbias/00090844_00000108_7.AllStreams.dst',
-        # 'data/minbias/00090844_00000186_7.AllStreams.dst',
-        # 'data/minbias/00090844_00000193_7.AllStreams.dst',
-        # 'data/minbias/00090844_00000207_7.AllStreams.dst',
-        # 'data/minbias/00090844_00000227_7.AllStreams.dst',
-        # 'data/minbias/00090844_00000054_7.AllStreams.dst',
-        # 'data/minbias/00090844_00000176_7.AllStreams.dst',
+        'data/minbias/00090844_00000048_7.AllStreams.dst',
+        'data/minbias/00090844_00000055_7.AllStreams.dst',
+        'data/minbias/00090844_00000075_7.AllStreams.dst',
+        'data/minbias/00090844_00000079_7.AllStreams.dst',
+        'data/minbias/00090844_00000108_7.AllStreams.dst',
+        'data/minbias/00090844_00000186_7.AllStreams.dst',
+        'data/minbias/00090844_00000193_7.AllStreams.dst',
+        'data/minbias/00090844_00000207_7.AllStreams.dst',
+        'data/minbias/00090844_00000227_7.AllStreams.dst',
+        'data/minbias/00090844_00000054_7.AllStreams.dst',
+        'data/minbias/00090844_00000176_7.AllStreams.dst',
         # 'data/norm/00169948_00000003_7.AllStreams.dst',  # eta->mumugamma
         # 'data/norm/00169948_00000138_7.AllStreams.dst'  # 39112231, sim10b, magdown
     ],
@@ -213,7 +213,7 @@ docaTool = GaudiPython.gbl.LoKi.Particles.DOCA(0, 0, dstTool)
 try: from scripts.Ntuple import Ntuple
 # analysis production
 except: from Ntuple import Ntuple
-ntuple = Ntuple(outfile, IS_MC, tes, genTool, rftTool, pvrTool,
+ntuple = Ntuple(outfile, IS_MC, IS_MUMUGAMMA, tes, genTool, rftTool, pvrTool,
                 None, dstTool, None, trkTool, l0Tool, hlt1Tool, hlt2Tool)
 
 # Run.
