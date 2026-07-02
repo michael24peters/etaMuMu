@@ -247,6 +247,68 @@ class Ntuple:
         try:
             # Check if the HLT2 line fired
             reports_path = os.path.join(DaVinci().RootInTES, 'Hlt2/DecReports')
+            reports = self.tes[reports_path]
+            if not reports.decReport(line + 'Decision').decision(): return False
+
+            # DecReport fired — log debug info before doing track matching
+            prt_path = os.path.join(DaVinci().RootInTES, line, 'Particles')
+            online_cands = self.tes[prt_path]
+            n_online = len(online_cands) if online_cands else 0
+            n_offline_dtrs = len(obj.daughtersVector())
+            with open('debug_hlt2_tis_tos.txt', 'a') as dbg:
+                dbg.write(f'\n--- {line} fired | mode={mode} | '
+                          f'offline_dtrs={n_offline_dtrs} | online_cands={n_online} ---\n')
+
+            # Check the overlap of each track used to build the offline candidate
+            trackPassed = [False for i in range(n_offline_dtrs)]
+            i = 0
+            for track in obj.daughtersVector():
+                offlineIDs = set(id.lhcbID() for id in track.proto().track().lhcbIDs())
+                best_overlap = 0.0
+                # Match the HLT2 track to the offline track.
+                for cand in (online_cands or []):
+                    for online_dtr in cand.daughtersVector():
+                        if online_dtr.particleID().pid() != track.particleID().pid(): continue
+                        try:
+                            onlineIDs = set(id.lhcbID() for id in online_dtr.proto().track().lhcbIDs())
+                        except:
+                            continue
+                        intersection = offlineIDs & onlineIDs
+                        overlap = len(intersection) / len(offlineIDs) if offlineIDs else 0.0
+                        if overlap > best_overlap:
+                            best_overlap = overlap
+                        if overlap > threshold:
+                            trackPassed[i] = True
+                with open('debug_hlt2_tis_tos.txt', 'a') as dbg:
+                    dbg.write(f'  dtr[{i}] pid={track.particleID().pid()} '
+                              f'nIDs={len(offlineIDs)} best_overlap={best_overlap:.3f} '
+                              f'passed={trackPassed[i]}\n')
+                i += 1
+            result = False if trackPassed.count(flag) else True
+            with open('debug_hlt2_tis_tos.txt', 'a') as dbg:
+                dbg.write(f'  => trackPassed={trackPassed} result={result}\n')
+            # If TOS, check that all tracks passed
+            # If TIS, check that no tracks passed
+            return result
+        except Exception as e:
+            with open('debug_hlt2_tis_tos.txt', 'a') as dbg:
+                dbg.write(f'  EXCEPTION {line} mode={mode}: {e}\n')
+
+    # ---------------------------------------------------------------------------
+
+    def turboTISTOS_og(self, obj, line, mode = 'tos'):
+        """ 
+        For determining TOS on turbo candidates, when  HLT2 selection reports are 
+        not available
+        """
+
+        if not obj: return False
+        if   mode == 'tos': threshold = 0.7;  flag = False
+        elif mode == 'tis': threshold = 0.01; flag = True
+        else: return False
+        try:
+            # Check if the HLT2 line fired
+            reports_path = os.path.join(DaVinci().RootInTES, 'Hlt2/DecReports')
             print("Checking reports path:", reports_path)  # Debug
             reports = self.tes[reports_path]
             # Check size of reports
@@ -379,6 +441,26 @@ class Ntuple:
             for i, name in enumerate(hlt2Trgs):
                 self.fill('%s_hlt2_tos%i' % (pre, i), self.turboTISTOS(prt, name))
                 self.fill('%s_hlt2_tis%i' % (pre, i), self.turboTISTOS(prt, name, mode='tis'))
+                # Compare behavior of turboTISTOS and turboTISTOS_og for HLT2 lines
+                v1_decision = self.turboTISTOS(prt, name)
+                v1_decision_tis = self.turboTISTOS(prt, name, mode='tis')
+                v2_decision = self.turboTISTOS_og(prt, name)
+                v2_decision_tis = self.turboTISTOS_og(prt, name, mode='tis')
+                if v1_decision != v2_decision or v1_decision_tis != v2_decision_tis:
+                    # Print
+                    print(f"Discrepancy found for line {name}:")
+                    print(f"  turboTISTOS: TOS={v1_decision}, TIS={v1_decision_tis}")
+                    print(f"  turboTISTOS_og: TOS={v2_decision}, TIS={v2_decision_tis}")
+                    # Write to text file, cumulate output results
+                    with open("turboTISTOS_discrepancies.txt", "a") as f:
+                        f.write(f"Discrepancy found for line {name}:\n")
+                        f.write(f"  turboTISTOS: TOS={v1_decision}, TIS={v1_decision_tis}\n")
+                        f.write(f"  turboTISTOS_og: TOS={v2_decision}, TIS={v2_decision_tis}\n")
+                        f.write("\n")
+                        # Keep running total of discrepancies found
+                        with open("discrepancy_count.txt", "a") as count_f: 
+                            count_f.write("1\n")  # Write a line for each discrepancy found
+
             # HLT2 Topo lines persist SelReports, so TriggerTisTos works normally here.
             self.hlt2Tool.setTriggerInput('Hlt2Topo.*')
             self.fill('%s_hlt2_tis_topo' % pre, self.hlt2Tool.tisTosTobTrigger().tis())
