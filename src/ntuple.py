@@ -27,9 +27,9 @@ hlt1Trgs = [
     'Hlt1DiMuonLowMassDecision'
 ]
 hlt2Trgs = [
-    'Hlt2ExoticaPrmptDiMuonTurboDecision',
-    'Hlt2ExoticaDisplDiMuonDecision',
-    'Hlt2ExoticaDiMuonNoIPTurboDecision',
+    'Hlt2ExoticaPrmptDiMuonTurbo',
+    'Hlt2ExoticaDisplDiMuon',
+    'Hlt2ExoticaDiMuonNoIPTurbo',
 ]
 
 # =============================================================================
@@ -246,7 +246,11 @@ class Ntuple:
         else: return False
         try:
             # Check if the HLT2 line fired
-            reports = self.tes[DaVinci().RootInTES + 'Hlt2/DecReports']
+            reports_path = os.path.join(DaVinci().RootInTES, 'Hlt2/DecReports')
+            print("Checking reports path:", reports_path)  # Debug
+            reports = self.tes[reports_path]
+            # Check size of reports
+            print("Reports size:", reports.size())  # Debug
             if not reports.decReport(line + 'Decision').decision(): return False
             # Check the overlap of each track used to build the offline candidate
             trackPassed = [False for i in range(len(obj.daughtersVector()))]
@@ -254,7 +258,9 @@ class Ntuple:
             for track in obj.daughtersVector():
                 offlineIDs = set(id.lhcbID() for id in track.proto().track().lhcbIDs())
                 # Match the HLT2 track to the offline track
-                for cand in self.tes[DaVinci().RootInTES + line + '/Particles']:
+                prt_path = os.path.join(DaVinci().RootInTES, line, 'Particles')
+                print("Checking particle path:", prt_path)  # Debug
+                for cand in self.tes[prt_path]:
                     if cand.particleID().pid() != track.particleID().pid(): continue
                     onlineIDs = set(id.lhcbID() for id in cand.proto().track().lhcbIDs())
                     intersection = offlineIDs & onlineIDs
@@ -373,23 +379,7 @@ class Ntuple:
             for i, name in enumerate(hlt2Trgs):
                 self.fill('%s_hlt2_tos%i' % (pre, i), self.turboTISTOS(prt, name))
                 self.fill('%s_hlt2_tis%i' % (pre, i), self.turboTISTOS(prt, name, mode='tis'))
-            
-            # hlt2_dec_loc = ('Hlt2/DecReports' if self.IS_MC
-            #                 else DaVinci().RootInTES.rstrip('/') + '/Hlt2/DecReports')
-            # hlt2_dec = self.tes[hlt2_dec_loc]
-            # hlt2_fired = {}
-            # self.hlt2Tool.setTriggerInput('Hlt2.*')
-            # hlt2_tis = self.hlt2Tool.tisTosTobTrigger().tis()
-            # if hlt2_dec:
-            #     try:
-            #         for n, rep in hlt2_dec.decReports().items():
-            #             hlt2_fired[str(n)] = int(bool(rep.decision()))
-            #     except: pass
-            # for i, name in enumerate(hlt2Trgs):
-            #     self.fill('%s_hlt2_tos%i' % (pre, i), hlt2_fired.get(name, -1))
-            # self.fill('%s_hlt2_tis' % pre, hlt2_tis)
-            
-            # Topo lines persist SelReports, so TriggerTisTos works normally here.
+            # HLT2 Topo lines persist SelReports, so TriggerTisTos works normally here.
             self.hlt2Tool.setTriggerInput('Hlt2Topo.*')
             self.fill('%s_hlt2_tis_topo' % pre, self.hlt2Tool.tisTosTobTrigger().tis())
             self.fill('%s_hlt2_tos_topo' % pre, self.hlt2Tool.tisTosTobTrigger().tos())
