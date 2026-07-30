@@ -1,15 +1,26 @@
 # pycache
 */__pycache__/*
+__pychache__/
 
 # python artifacts
 *.swp
 *.pyc
 
 # data/ directory
-data/*
+data/
+
+# old/ directory
+old/
+
+# ref/ directory
+ref/
 
 # test/ directory
-test/*
+test/
+
+# plot/ directory
+plot/
+plots/
 
 # png files
 *.png
@@ -19,6 +30,12 @@ test/*
 
 # ROOT files
 *.root
+
+# Dump files
+*dump*
+dump.txt
+*tes_dump*
+src/tes*
 
 # Prerequisites
 *.d
