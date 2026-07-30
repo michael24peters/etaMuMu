@@ -152,30 +152,132 @@ def _names(reports):
         names = [f'<selectionNames error: {e}>']
     return sz, names
 
-# ========== 4. Hlt2 DecReports vs SelReports over several events ==========
+def _describe(hos, depth=0, maxdepth=2):
+    """
+    Recursively describe an HltObjectSummary. TriggerTisTos classifies a
+    candidate by walking this substructure down to objects that carry LHCbIDs
+    and comparing them against the offline candidate's hits, so a report with
+    no substructure and no LHCbIDs is exactly the case where TOS and TIS both
+    come back false no matter what the offline input is.
+    """
+    pad = '      ' + '  ' * depth
+    if hos is None:
+        return pad + '<null>'
+    # SmartRef -> target, if this came out of a substructure vector.
+    try:
+        if hasattr(hos, 'target'):
+            hos = hos.target()
+    except Exception:
+        pass
+    try:
+        clid = hos.summarizedObjectCLID()
+    except Exception as e:
+        return f'{pad}<no CLID: {e}>'
+    try:
+        nids = len(hos.lhcbIDs())
+    except Exception as e:
+        nids = f'<err {e}>'
+    try:
+        subs = list(hos.substructure())
+    except Exception:
+        subs = []
+    try:
+        info = dict(hos.numericalInfo())
+    except Exception:
+        info = {}
+    line = (f'{pad}CLID={clid} nLHCbIDs={nids} nSubstructure={len(subs)}'
+            f' numericalInfo={sorted(info)[:6]}')
+    out = [line]
+    if depth < maxdepth:
+        for s in subs:
+            out.append(_describe(s, depth + 1, maxdepth))
+    return '\n'.join(out)
+
+# ========== 4. Is each Hlt2 line present in the SelReports when it fires? ==========
+# The question this answers: for a line whose DecReport says Decision=True,
+# does the SelReports container carry a corresponding selReport with candidate
+# substructure? If not, TriggerTisTos has the decision but no online candidate
+# hits to compare the offline candidate against, and returns tos=false/tis=false.
+# Hlt2Topo* is scanned as a control, since its TOS/TIS branches are nonzero in
+# the ntuple while the Displ line's are identically zero.
 print(f"\n========== Hlt2 DecReports vs SelReports over {_args.nevents} events ==========")
+
+stats = {name: {'fired': 0, 'in_selreports': 0, 'with_substructure': 0}
+         for name in hlt2_lines}
+stats['Hlt2Topo* (control)'] = {'fired': 0, 'in_selreports': 0,
+                                'with_substructure': 0}
+dumped = set()      # lines whose selReport has already been dumped in detail
+n_seen = 0
+
 for evt in range(_args.nevents):
     if evt > 0:
         gaudi.run(1)
     if not bool(tes['/Event']):
         print(f"  event {evt}: no more events")
         break
+    n_seen += 1
 
     dec_reports = tes[root + '/Hlt2/DecReports']
     sel_reports = tes[root + '/Hlt2/SelReports']
     hlt1_sel_reports = tes[root + '/Hlt1/SelReports']
 
-    fired = []
-    if dec_reports:
-        for name, dec in dec_reports.decReports().items():
-            if name in hlt2_lines and dec.decision():
-                fired.append(name)
-
     sel_size, sel_names = _names(sel_reports)
     hlt1_sel_size, hlt1_sel_names = _names(hlt1_sel_reports)
 
-    print(f"  event {evt}: fired={fired}")
-    print(f"    Hlt2 SelReports size={sel_size} names={sel_names}")
-    print(f"    Hlt1 SelReports size={hlt1_sel_size} names={hlt1_sel_names}")
+    # Every Hlt2 line whose decision is true in this event.
+    fired_all = []
+    if dec_reports:
+        try:
+            for name, dec in dec_reports.decReports().items():
+                if dec.decision():
+                    fired_all.append(str(name))
+        except Exception as e:
+            print(f"  event {evt}: <decReports error: {e}>")
+    fired = [n for n in fired_all if n in hlt2_lines]
+    fired_topo = [n for n in fired_all if n.startswith('Hlt2Topo')]
+
+    # Accumulate presence statistics, and dump substructure the first time
+    # each line of interest fires.
+    for name, key in ([(n, n) for n in fired]
+                      + [(n, 'Hlt2Topo* (control)') for n in fired_topo]):
+        stats[key]['fired'] += 1
+        present = name in sel_names
+        if present:
+            stats[key]['in_selreports'] += 1
+        if key in dumped:
+            continue
+        dumped.add(key)
+        print(f"\n  --- first firing of {name} (event {evt}) ---")
+        print(f"    in SelReports selectionNames(): {present}")
+        try:
+            hos = sel_reports.selReport(name)
+        except Exception as e:
+            hos = None
+            print(f"    selReport('{name}') raised: {e}")
+        if hos is not None:
+            print(f"    selReport('{name}'):")
+            print(_describe(hos))
+            try:
+                if len(list(hos.substructure())) > 0:
+                    stats[key]['with_substructure'] += 1
+            except Exception:
+                pass
+
+    if evt < 5:     # keep the per-event dump short; the summary is what matters
+        print(f"  event {evt}: fired(target)={fired} fired(topo)={fired_topo}")
+        print(f"    Hlt2 SelReports size={sel_size} n_names={len(sel_names)}")
+        print(f"    Hlt1 SelReports size={hlt1_sel_size} n_names={len(hlt1_sel_names)}")
+        if evt == 0:
+            print(f"    Hlt2 SelReports names={sel_names}")
+
+# ========== 5. Summary ==========
+print(f"\n========== Summary over {n_seen} events ==========")
+print(f"  {'line':45s} {'fired':>7s} {'in SelReports':>14s}")
+for name, s in stats.items():
+    print(f"  {name:45s} {s['fired']:7d} {s['in_selreports']:14d}")
+print("\n  A line with fired > 0 and in-SelReports == 0 has a readable "
+      "DecReport but\n  no online candidate to compare against, which is "
+      "exactly the configuration\n  in which TriggerTisTos returns "
+      "tos=false and tis=false unconditionally.")
 
 print("\nDone.")
