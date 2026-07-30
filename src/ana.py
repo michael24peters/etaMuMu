@@ -77,6 +77,17 @@ def parseArgs() -> bool:
 
 # =============================================================================
 
+def parseArgsLocal():
+    """
+    Parser method for local samples.
+    """
+    parser = argparse.ArgumentParser(description='Local sample analysis script')
+    parser.add_argument('evtmax', type=int, default=-1,
+                        help='Maximum number of events to process. -1 for all events.')
+    return parser.parse_args()
+
+# =============================================================================
+
 # Possible decay options
 DECAYS = ['eta2mumu', 'eta2mumugamma', 'eta2mumumumu', 'eta2mumuee']
 
@@ -85,9 +96,9 @@ DECAYS = ['eta2mumu', 'eta2mumugamma', 'eta2mumumumu', 'eta2mumuee']
 IS_MC = False
 # True = signal | False = minbias
 # Only relevant if IS_MC is True
-IS_SIGNAL = True
+IS_SIGNAL = False
 # True = local sample | False = analysis production
-IS_SAMPLE = True
+IS_SAMPLE = False
 # Decay type
 DECAY = 'eta2mumu'
 if DECAY not in DECAYS: 
@@ -96,6 +107,7 @@ if DECAY not in DECAYS:
 DaVinci().DataType = '2018'
 DaVinci().Lumi = False  # Processing luminosity data
 # Local sample
+args = parseArgsLocal()
 if IS_SAMPLE:
     # MC
     if IS_MC:
@@ -132,7 +144,7 @@ if IS_SAMPLE:
         data_paths = [
             'data/00080042_00003916_1.leptons.mdst'
         ]
-        
+    
 
     # Get input data.
     IOHelper('ROOT').inputFiles(data_paths, clear=True)
@@ -151,6 +163,7 @@ from StandardParticles import StdLooseAllPhotons as photons
 from StandardParticles import StdLooseElectrons as electrons
 from PhysSelPython.Wrappers import Selection, SelectionSequence
 # Data configuration
+DaVinci().RootInTES = ''  # MC default; overridden below for Turbo data.
 if not IS_MC:
     from PhysConf.Filters import LoKi_Filters
     DaVinci().Simulation = False
@@ -251,13 +264,8 @@ from Configurables import ToolSvc, TriggerTisTos
 for stage in ('Hlt1', 'Hlt2'):
     ToolSvc().addTool(TriggerTisTos, stage + "TriggerTisTos")
     tool = getattr(ToolSvc(), stage + "TriggerTisTos")
-    if IS_MC:
-        tool.HltDecReportsLocation = '/Event/' + stage + '/DecReports'
-        tool.HltSelReportsLocation = '/Event/' + stage + '/SelReports'
-    else:
-        root = DaVinci().RootInTES.rstrip('/')
-        tool.HltDecReportsLocation = root + '/' + stage + '/DecReports'
-        tool.HltSelReportsLocation = root + '/' + stage + '/SelReports'
+    tool.HltDecReportsLocation = os.path.join(DaVinci().RootInTES, stage, 'DecReports')
+    tool.HltSelReportsLocation = os.path.join(DaVinci().RootInTES, stage, 'SelReports')
 
 # GaudiPython configuration.
 import GaudiPython
@@ -298,16 +306,15 @@ physTool = gaudi.toolsvc().create(
 docaTool = GaudiPython.gbl.LoKi.Particles.DOCA(0, 0, dstTool)
 
 # Initialize the tuple.
-# local sample
-try: from scripts.ntuple import Ntuple
-# analysis production
-except: from ntuple import Ntuple
+try: from ntuple import Ntuple
+except: from src.ntuple import Ntuple
 ntuple = Ntuple(outfile, IS_MC, DECAY, tes, genTool, rftTool, pvrTool,
                 None, dstTool, None, trkTool, l0Tool, hlt1Tool, hlt2Tool)
 
 # Run.
+# Local sample
 try: evtmax = args.evtmax if args.evtmax > 0 else float("inf")
-# analysis production
+# Analysis production
 except: 
     try: evtmax = int(sys.argv[1])
     except: evtmax = float("inf")
@@ -326,13 +333,8 @@ while evtnum < evtmax:
         ntuple.ntuple['evt_tck'][0] = daq.triggerConfigurationKey()
     except: continue
     # Save number of primary vertices
-    if IS_MC:
-        try: ntuple.ntuple['pvr_n'][0] = len(tes['Rec/Vertex/Primary'])
-        except: pass
-    # Run 2 data
-    else:
-        try: ntuple.ntuple['pvr_n'][0] = len(tes[os.path.join(DaVinci().RootInTES,'Rec/Vertex/Primary')])
-        except: pass
+    try: ntuple.ntuple['pvr_n'][0] = len(tes[os.path.join(DaVinci().RootInTES, 'Rec/Vertex/Primary')])
+    except: pass
     # Scintilator pad multiplicity info from L0DUReport
     try: ntuple.ntuple['evt_spd'][0] = GaudiPython.gbl.LoKi.L0.DataValue('Spd(Mult)')(tes['Trig/L0/L0DUReport'])
     except: pass
@@ -357,12 +359,8 @@ while evtnum < evtmax:
 
     # Get particles and primary vertices
     # 20260407: removed trks
-    if IS_MC:
-        prts = tes[seq.outputLocation()]
-        pvrs = tes['Rec/Vertex/Primary']
-    else:
-        prts = tes[os.path.join(DaVinci().RootInTES, seq.outputLocation())]
-        pvrs = tes[os.path.join(DaVinci().RootInTES, 'Rec/Vertex/Primary')]
+    prts = tes[os.path.join(DaVinci().RootInTES, seq.outputLocation())]
+    pvrs = tes[os.path.join(DaVinci().RootInTES, 'Rec/Vertex/Primary')]
 
     # Fill tag and prt info.
     sigs = []

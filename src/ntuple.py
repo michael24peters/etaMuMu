@@ -1,7 +1,7 @@
-###############################################################################
-# Ntuple class for eta -> mu+ mu- gamma analysis                              #
-# Author: Michael Peters                                                      #
-###############################################################################
+################################################################################
+# Ntuple class for eta analyses                                                #
+# Author: Michael Peters                                                       #
+################################################################################
 
 import ROOT
 import array
@@ -33,7 +33,6 @@ hlt2Trgs = [
 ]
 
 # =============================================================================
-
 
 class Ntuple:
     """
@@ -277,7 +276,7 @@ class Ntuple:
         try: prt = prt.data()
         except: pass
         # Try to get primary vertex associated with particle
-        pvr_loc = os.path.join(DaVinci().RootInTES, 'Rec/Vertex/Primary') if not self.IS_MC else 'Rec/Vertex/Primary'
+        pvr_loc = os.path.join(DaVinci().RootInTES, 'Rec/Vertex/Primary')
         try: pvr = self.pvrTool.relatedPV(prt, pvr_loc)
         except: pvr = None
         # Recursive base case; check if a composite particle that decays.
@@ -368,8 +367,13 @@ class Ntuple:
                 self.fill('%s_hlt1_tis%i' % (pre, i), self.hlt1Tool.tisTosTobTrigger().tis())
             # Fill HLT2 TIS and TOS info.
             for i, name in enumerate(hlt2Trgs):
-                self.fill('%s_hlt2_tos%i' % (pre, i), self.turboTISTOS(prt, name))
-                self.fill('%s_hlt2_tis%i' % (pre, i), self.turboTISTOS(prt, name, mode='tis'))
+                if self.IS_MC:
+                    self.hlt2Tool.setTriggerInput(name + 'Decision')
+                    self.fill('%s_hlt2_tos%i' % (pre, i), self.hlt2Tool.tisTosTobTrigger().tos())
+                    self.fill('%s_hlt2_tis%i' % (pre, i), self.hlt2Tool.tisTosTobTrigger().tis())
+                else:
+                    self.fill('%s_hlt2_tos%i' % (pre, i), self.turboTISTOS(prt, name))
+                    self.fill('%s_hlt2_tis%i' % (pre, i), self.turboTISTOS(prt, name, mode='tis'))
 
             # Non-Turbo HLT2 lines persist SelReports; use TriggerTisTos.
             self.hlt2Tool.setTriggerInput('Hlt2ExoticaDisplDiMuon' + 'Decision')
